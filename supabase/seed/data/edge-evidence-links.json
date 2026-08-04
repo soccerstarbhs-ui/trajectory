@@ -1,0 +1,152 @@
+[
+  {
+    "node_name": "BIOL UN3500 Independent Research in Biological Sciences",
+    "evidence_id": "E034",
+    "evidence_class": "B",
+    "causal_label": "associational",
+    "confidence": "moderate",
+    "population": "Historical U.S. MD applicant cohort",
+    "limitations": "Participation evidence does not establish an hours curve, output effect, or causal probability gain.",
+    "modeling_rule": "Use as evidence context and gap logic; never convert the odds ratio into a personal probability delta."
+  },
+  {
+    "node_name": "Zuckerman Institute — Neuroscience Research",
+    "evidence_id": "E034",
+    "evidence_class": "B",
+    "causal_label": "associational",
+    "confidence": "moderate",
+    "population": "Historical U.S. MD applicant cohort",
+    "limitations": "Participation evidence does not establish an hours curve, output effect, or causal probability gain.",
+    "modeling_rule": "Use as evidence context and gap logic; never convert the odds ratio into a personal probability delta."
+  },
+  {
+    "node_name": "Herbert Irving Comprehensive Cancer Center — Cancer Biology",
+    "evidence_id": "E034",
+    "evidence_class": "B",
+    "causal_label": "associational",
+    "confidence": "moderate",
+    "population": "Historical U.S. MD applicant cohort",
+    "limitations": "Participation evidence does not establish an hours curve, output effect, or causal probability gain.",
+    "modeling_rule": "Use as evidence context and gap logic; never convert the odds ratio into a personal probability delta."
+  },
+  {
+    "node_name": "Department of Biological Sciences — SURF-Affiliated Lab",
+    "evidence_id": "E034",
+    "evidence_class": "B",
+    "causal_label": "associational",
+    "confidence": "moderate",
+    "population": "Historical U.S. MD applicant cohort",
+    "limitations": "Participation evidence does not establish an hours curve, output effect, or causal probability gain.",
+    "modeling_rule": "Use as evidence context and gap logic; never convert the odds ratio into a personal probability delta."
+  },
+  {
+    "node_name": "Columbia SURF (Summer Undergraduate Research Fellowship)",
+    "evidence_id": "E036",
+    "evidence_class": "B",
+    "causal_label": "associational",
+    "confidence": "moderate",
+    "population": "Historical U.S. MD applicant cohort",
+    "limitations": "The retained estimate concerns summer academic enrichment broadly, not a causal effect of this named program.",
+    "modeling_rule": "Model verified downstream research and mentorship unlocks; do not award a prestige or probability boost."
+  },
+  {
+    "node_name": "Amgen Scholars Program — Columbia University",
+    "evidence_id": "E036",
+    "evidence_class": "B",
+    "causal_label": "associational",
+    "confidence": "moderate",
+    "population": "Historical U.S. MD applicant cohort",
+    "limitations": "The retained estimate concerns summer academic enrichment broadly, not a causal effect of this named program.",
+    "modeling_rule": "Model verified downstream research and mentorship unlocks; do not award a prestige or probability boost."
+  },
+  {
+    "node_name": "NIH Summer Internship Program",
+    "evidence_id": "E036",
+    "evidence_class": "B",
+    "causal_label": "associational",
+    "confidence": "moderate",
+    "population": "Historical U.S. MD applicant cohort",
+    "limitations": "The retained estimate concerns summer academic enrichment broadly, not a causal effect of this named program.",
+    "modeling_rule": "Model verified downstream research and mentorship unlocks; do not award a prestige or probability boost."
+  },
+  {
+    "node_name": "Mayo Clinic SURF Program",
+    "evidence_id": "E036",
+    "evidence_class": "B",
+    "causal_label": "associational",
+    "confidence": "moderate",
+    "population": "Historical U.S. MD applicant cohort",
+    "limitations": "The retained estimate concerns summer academic enrichment broadly, not a causal effect of this named program.",
+    "modeling_rule": "Model verified downstream research and mentorship unlocks; do not award a prestige or probability boost."
+  },
+  {
+    "node_name": "Medical Scribing (part-time job)",
+    "evidence_id": "E038",
+    "evidence_class": "B",
+    "causal_label": "associational",
+    "confidence": "moderate",
+    "population": "Historical U.S. MD applicant cohort",
+    "limitations": "Binary exposure evidence does not validate universal hour targets or a causal effect.",
+    "modeling_rule": "Use completed exposure as a gap indicator; rank quality and downstream value separately."
+  },
+  {
+    "node_name": "CU Emergency Medical Service (CUEMS) Volunteer EMT",
+    "evidence_id": "E038",
+    "evidence_class": "B",
+    "causal_label": "associational",
+    "confidence": "moderate",
+    "population": "Historical U.S. MD applicant cohort",
+    "limitations": "Binary exposure evidence does not validate universal hour targets or a causal effect.",
+    "modeling_rule": "Use completed exposure as a gap indicator; rank quality and downstream value separately."
+  },
+  {
+    "node_name": "Mount Sinai Morningside Hospital Volunteering",
+    "evidence_id": "E038",
+    "evidence_class": "B",
+    "causal_label": "associational",
+    "confidence": "moderate",
+    "population": "Historical U.S. MD applicant cohort",
+    "limitations": "Binary exposure evidence does not validate universal hour targets or a causal effect.",
+    "modeling_rule": "Use completed exposure as a gap indicator; rank quality and downstream value separately."
+  },
+  {
+    "node_name": "Free Clinic / Community Health Fair Volunteer",
+    "evidence_id": "E038",
+    "evidence_class": "B",
+    "causal_label": "associational",
+    "confidence": "moderate",
+    "population": "Historical U.S. MD applicant cohort",
+    "limitations": "Binary exposure evidence does not validate universal hour targets or a causal effect.",
+    "modeling_rule": "Use completed exposure as a gap indicator; rank quality and downstream value separately."
+  },
+  {
+    "node_name": "Physician Shadowing (40+ hrs)",
+    "evidence_id": "E022",
+    "evidence_class": "C",
+    "causal_label": "descriptive",
+    "confidence": "low",
+    "population": "First-time U.S. MD applicants, 2017–2020",
+    "limitations": "Participation prevalence does not establish an hours threshold or admissions effect.",
+    "modeling_rule": "Use only as an experience-completeness check."
+  },
+  {
+    "node_name": "Health-Focused Student Nonprofit Founder/Lead",
+    "evidence_id": "E009",
+    "evidence_class": "C",
+    "causal_label": "descriptive",
+    "confidence": "low",
+    "population": "2025 U.S. MD matriculants",
+    "limitations": "A matriculant mean is not an applicant target, threshold, or causal effect.",
+    "modeling_rule": "Use continuity, responsibility, and mission fit for recommendation logic; no probability coefficient."
+  },
+  {
+    "node_name": "S-HEAL Volunteer Health Educator",
+    "evidence_id": "E009",
+    "evidence_class": "C",
+    "causal_label": "descriptive",
+    "confidence": "low",
+    "population": "2025 U.S. MD matriculants",
+    "limitations": "A matriculant mean is not an applicant target, threshold, or causal effect.",
+    "modeling_rule": "Use continuity, responsibility, and mission fit for recommendation logic; no probability coefficient."
+  }
+]

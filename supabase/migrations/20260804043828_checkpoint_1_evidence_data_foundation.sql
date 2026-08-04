@@ -1,59 +1,95 @@
--- Trajectory — evidence-backed data foundation
--- This schema stores product-readiness and action-ranking inputs.
--- It intentionally contains no personal admissions-probability field.
+-- Checkpoint 1: clean the obsolete seed batch and migrate to evidence-backed scoring.
+-- The assertions make the approved destructive cleanup fail closed if live data changed.
 
-create extension if not exists "pgcrypto";
+do $$
+declare
+  node_total integer;
+  edge_total integer;
+  node_batches integer;
+  edge_batches integer;
+begin
+  select count(*) into node_total from public.nodes;
+  select count(*) into edge_total from public.edges;
+  select count(distinct created_at) into node_batches from public.nodes;
+  select count(distinct created_at) into edge_batches from public.edges;
 
-create table public.nodes (
-  id uuid primary key default gen_random_uuid(),
-  type text not null check (type in (
-    'goal', 'course', 'extracurricular', 'scholarship',
-    'research_lab', 'professor', 'club', 'internship'
-  )),
-  name text not null,
-  description text,
-  metadata jsonb not null default '{}'::jsonb,
-  state_requirements jsonb not null default '{}'::jsonb,
-  readiness_dimensions text[] not null default '{}'::text[],
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (type, name)
-);
+  if node_total <> 190 or edge_total <> 152
+     or node_batches <> 2 or edge_batches <> 2 then
+    raise exception 'Cleanup aborted: expected two complete seed batches (190 nodes, 152 edges).';
+  end if;
 
-create index nodes_type_idx on public.nodes (type);
+  if exists (
+    select 1 from (
+      select created_at, count(*) as row_count
+      from public.nodes group by created_at
+    ) batches where row_count <> 95
+  ) or exists (
+    select 1 from (
+      select created_at, count(*) as row_count
+      from public.edges group by created_at
+    ) batches where row_count <> 76
+  ) then
+    raise exception 'Cleanup aborted: seed batch sizes do not match 95 nodes and 76 edges.';
+  end if;
+end
+$$;
+
+delete from public.nodes
+where created_at = (select min(created_at) from public.nodes);
+
+do $$
+begin
+  if (select count(*) from public.nodes) <> 95
+     or (select count(*) from public.edges) <> 76 then
+    raise exception 'Cleanup verification failed; rolling back migration.';
+  end if;
+end
+$$;
+
+alter table public.nodes
+  drop column probability_impact,
+  add column description text,
+  add column state_requirements jsonb not null default '{}'::jsonb,
+  add column readiness_dimensions text[] not null default '{}'::text[],
+  add column updated_at timestamptz not null default now(),
+  add constraint nodes_type_name_key unique (type, name);
+
 create index nodes_readiness_dimensions_idx
   on public.nodes using gin (readiness_dimensions);
 
-create table public.edges (
-  id uuid primary key default gen_random_uuid(),
-  source_id uuid not null references public.nodes(id) on delete cascade,
-  target_id uuid not null references public.nodes(id) on delete cascade,
-  relationship_type text not null check (relationship_type in (
-    'prerequisite', 'unlocks', 'enables', 'alternative_to', 'supports',
-    'addresses_gap', 'documents_preference', 'hypothetical_effect'
-  )),
-  evidence_class text check (evidence_class in ('A', 'B', 'C', 'D', 'E')),
-  causal_label text not null default 'not_assessed' check (causal_label in (
+alter table public.edges
+  drop constraint if exists edges_relationship_type_check;
+
+update public.edges
+set relationship_type = 'supports'
+where relationship_type = 'increases_probability';
+
+alter table public.edges
+  drop column weight,
+  add column evidence_class text check (evidence_class in ('A', 'B', 'C', 'D', 'E')),
+  add column causal_label text not null default 'not_assessed' check (causal_label in (
     'causal', 'associational', 'descriptive', 'institutional_preference',
     'hypothetical', 'not_assessed'
   )),
-  confidence text not null default 'unknown' check (confidence in (
-    'high', 'moderate', 'low', 'unknown'
+  add column confidence text not null default 'unknown' check (
+    confidence in ('high', 'moderate', 'low', 'unknown')
+  ),
+  add column population text,
+  add column evidence_cycle text,
+  add column limitations text,
+  add column modeling_rule text,
+  add column metadata jsonb not null default '{}'::jsonb,
+  add column updated_at timestamptz not null default now(),
+  add constraint edges_relationship_type_check check (relationship_type in (
+    'prerequisite', 'unlocks', 'enables', 'alternative_to', 'supports',
+    'addresses_gap', 'documents_preference', 'hypothetical_effect'
   )),
-  population text,
-  evidence_cycle text,
-  limitations text,
-  modeling_rule text,
-  metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (source_id, target_id, relationship_type),
-  check (source_id <> target_id)
-);
+  add constraint edges_no_self_reference_check check (source_id <> target_id);
 
-create index edges_source_idx on public.edges (source_id);
-create index edges_target_idx on public.edges (target_id);
 create index edges_relationship_type_idx on public.edges (relationship_type);
+
+drop policy if exists "Public read access on nodes" on public.nodes;
+drop policy if exists "Public read access on edges" on public.edges;
 
 create table public.evidence_sources (
   source_id text primary key,
@@ -125,9 +161,6 @@ create table public.edge_evidence (
   primary key (edge_id, evidence_id)
 );
 
-create index edge_evidence_evidence_id_idx
-  on public.edge_evidence (evidence_id);
-
 create table public.student_profiles (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -168,9 +201,6 @@ create table public.student_node_states (
 
 create index student_node_states_profile_idx
   on public.student_node_states (profile_id, status);
-
-create index student_node_states_node_id_idx
-  on public.student_node_states (node_id);
 
 create table public.rubric_versions (
   id uuid primary key default gen_random_uuid(),
@@ -389,3 +419,5 @@ create policy "Users delete their own node states"
     select 1 from public.student_profiles p
     where p.id = profile_id and p.user_id = (select auth.uid())
   ));
+
+

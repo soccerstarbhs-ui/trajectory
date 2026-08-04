@@ -22,7 +22,7 @@ export default async function TestConnectionPage() {
         <p style={{ color: "green", fontSize: 20 }}>
           ✅ Connected to Supabase successfully.
           <br />
-          (No tables exist yet — that comes in Phase 1.)
+          The Trajectory data project is reachable.
         </p>
       ) : (
         <div>

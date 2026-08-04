@@ -22,7 +22,7 @@ export default async function GraphCheckPage() {
   // 2. Find every edge that touches the goal node, in either direction
   const { data: edges, error: edgeError } = await supabaseAdmin
     .from("edges")
-    .select("id, source_id, target_id, relationship_type, weight")
+    .select("id, source_id, target_id, relationship_type, evidence_class, confidence")
     .or(`source_id.eq.${goal.id},target_id.eq.${goal.id}`);
 
   if (edgeError) {
@@ -41,7 +41,7 @@ export default async function GraphCheckPage() {
 
   const { data: connectedNodes } = await supabaseAdmin
     .from("nodes")
-    .select("id, name, type, probability_impact")
+    .select("id, name, type, readiness_dimensions")
     .in("id", otherIds.length > 0 ? otherIds : ["00000000-0000-0000-0000-000000000000"]);
 
   const nodeById = new Map((connectedNodes ?? []).map((n) => [n.id, n]));
@@ -53,16 +53,12 @@ export default async function GraphCheckPage() {
       name: other?.name ?? "(unknown)",
       type: other?.type ?? "?",
       relationship: e.relationship_type,
-      weight: e.weight,
-      impact: other?.probability_impact ?? 0,
+      evidenceClass: e.evidence_class ?? "—",
+      confidence: e.confidence ?? "unknown",
     };
   });
 
-  rows.sort((a, b) => b.weight - a.weight);
-
-  const totalWeight = rows
-    .filter((r) => r.relationship === "increases_probability")
-    .reduce((sum, r) => sum + r.weight, 0);
+  rows.sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <div style={{ padding: 40, fontFamily: "monospace", maxWidth: 900 }}>
@@ -71,10 +67,8 @@ export default async function GraphCheckPage() {
         Found <b>{rows.length}</b> direct connections.
       </p>
       <p>
-        Sum of &quot;increases_probability&quot; edge weights directly on the
-        goal: <b>{totalWeight}</b> (this is a rough preview number — the real
-        probability engine with proper math comes in Phase 2, this is just to
-        confirm the data is wired up correctly)
+        These relationships describe graph support and evidence confidence.
+        They are not personal admissions-probability boosts.
       </p>
 
       <table style={{ borderCollapse: "collapse", width: "100%", marginTop: 20 }}>
@@ -83,7 +77,8 @@ export default async function GraphCheckPage() {
             <th style={{ padding: 6 }}>Connected Node</th>
             <th style={{ padding: 6 }}>Type</th>
             <th style={{ padding: 6 }}>Relationship</th>
-            <th style={{ padding: 6 }}>Weight</th>
+            <th style={{ padding: 6 }}>Evidence class</th>
+            <th style={{ padding: 6 }}>Confidence</th>
           </tr>
         </thead>
         <tbody>
@@ -92,7 +87,8 @@ export default async function GraphCheckPage() {
               <td style={{ padding: 6 }}>{r.name}</td>
               <td style={{ padding: 6 }}>{r.type}</td>
               <td style={{ padding: 6 }}>{r.relationship}</td>
-              <td style={{ padding: 6 }}>{r.weight}</td>
+              <td style={{ padding: 6 }}>{r.evidenceClass}</td>
+              <td style={{ padding: 6 }}>{r.confidence}</td>
             </tr>
           ))}
         </tbody>

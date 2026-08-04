@@ -8,7 +8,7 @@ import { createClient } from "@supabase/supabase-js";
  *
  * Use this for: the seed script, admin scripts, and server-side API
  * routes that need full database access (e.g. writing computed
- * probability scores back to the database).
+ * curated graph and evidence data back to the database).
  */
 export const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
