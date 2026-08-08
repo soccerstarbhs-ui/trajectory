@@ -32,12 +32,13 @@ export type GraphEdgeRecord = {
 };
 
 type Stage = "exploring" | "building" | "applying";
+type PathStatus = "completed" | "active" | "available" | "blocked" | "gap" | "goal";
 
 type TrajectoryNodeData = {
   eyebrow: string;
   title: string;
   detail: string;
-  tone: "current" | "course" | "opportunity" | "goal";
+  status: PathStatus;
 };
 
 type TrajectoryNode = Node<TrajectoryNodeData, "trajectory">;
@@ -63,11 +64,22 @@ const stages: Array<{ id: Stage; title: string; detail: string; depth: number }>
   },
 ];
 
-const toneColors: Record<TrajectoryNodeData["tone"], string> = {
-  current: "#a78bfa",
-  course: "#60a5fa",
-  opportunity: "#fbbf24",
-  goal: "#34d399",
+const statusColors: Record<PathStatus, string> = {
+  completed: "#34d399",
+  active: "#a78bfa",
+  available: "#60a5fa",
+  blocked: "#64748b",
+  gap: "#fb7185",
+  goal: "#fbbf24",
+};
+
+const statusLabels: Record<PathStatus, string> = {
+  completed: "Completed",
+  active: "Active",
+  available: "Available",
+  blocked: "Blocked",
+  gap: "Gap",
+  goal: "Goal",
 };
 
 const typeLabels: Record<string, string> = {
@@ -87,10 +99,17 @@ const priorityByStage: Record<Stage, string[]> = {
   applying: ["extracurricular", "research_lab", "internship", "professor", "course", "club", "scholarship"],
 };
 
-function toneForType(type: string): TrajectoryNodeData["tone"] {
-  if (type === "goal") return "goal";
-  if (type === "course") return "course";
-  return "opportunity";
+function statusForNode(
+  node: GraphNodeRecord,
+  level: number,
+  index: number,
+  maxDepth: number
+): PathStatus {
+  if (node.type === "goal") return "goal";
+  if (level === 1 && index === 0) return "gap";
+  if (level === 1 && index === 1) return "blocked";
+  if (level === maxDepth && (index === 2 || index === 3)) return "completed";
+  return "available";
 }
 
 function detailForNode(node: GraphNodeRecord) {
@@ -109,16 +128,20 @@ function detailForNode(node: GraphNodeRecord) {
 }
 
 function TrajectoryNodeCard({ data, selected }: NodeProps<TrajectoryNode>) {
-  const color = toneColors[data.tone];
+  const color = statusColors[data.status];
 
   return (
     <div
       className="trajectory-node"
       data-selected={selected}
+      data-status={data.status}
       style={{ "--node-accent": color } as React.CSSProperties}
     >
       <Handle type="target" position={Position.Left} />
-      <span className="trajectory-node__eyebrow">{data.eyebrow}</span>
+      <span className="trajectory-node__topline">
+        <span className="trajectory-node__eyebrow">{data.eyebrow}</span>
+        <span className="trajectory-node__status">{statusLabels[data.status]}</span>
+      </span>
       <strong>{data.title}</strong>
       <span className="trajectory-node__detail">{data.detail}</span>
       <Handle type="source" position={Position.Right} />
@@ -192,7 +215,7 @@ function buildPathway(
         eyebrow: typeLabels[node.type] ?? node.type,
         title: node.name,
         detail: detailForNode(node),
-        tone: toneForType(node.type),
+        status: statusForNode(node, level, index, stageConfig.depth),
       },
     };
   });
@@ -205,7 +228,7 @@ function buildPathway(
       eyebrow: "Current position",
       title: stageConfig.title,
       detail: stageConfig.detail,
-      tone: "current",
+      status: "active",
     },
   });
 
@@ -338,7 +361,7 @@ export function TrajectoryGraph({
       <section className="trajectory-graph-frame" aria-label="Trajectory graph">
         <div className="trajectory-graph-frame__topline">
           <span>{goal?.name.toUpperCase()} PATHWAY</span>
-          <span>{pathway.nodes.length - 1} LIVE NODES · {pathway.edges.length} CONNECTIONS</span>
+          <span>STAGE-BASED STATUS PREVIEW · {pathway.nodes.length - 1} LIVE NODES</span>
         </div>
         <div className="trajectory-canvas">
           <ReactFlow
@@ -362,14 +385,16 @@ export function TrajectoryGraph({
             <MiniMap
               pannable
               zoomable
-              nodeColor={(node) => toneColors[(node.data as TrajectoryNodeData).tone]}
+              nodeColor={(node) => statusColors[(node.data as TrajectoryNodeData).status]}
             />
             <Controls showInteractive={false} />
           </ReactFlow>
           <div className="trajectory-canvas__legend">
-            <span><i className="legend-current" />Current</span>
-            <span><i className="legend-course" />Course</span>
-            <span><i className="legend-opportunity" />Opportunity</span>
+            <span><i className="legend-completed" />Completed</span>
+            <span><i className="legend-active" />Active</span>
+            <span><i className="legend-available" />Available</span>
+            <span><i className="legend-blocked" />Blocked</span>
+            <span><i className="legend-gap" />Gap</span>
             <span><i className="legend-goal" />Goal</span>
           </div>
         </div>
