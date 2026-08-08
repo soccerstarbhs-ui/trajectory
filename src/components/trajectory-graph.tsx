@@ -14,6 +14,11 @@ import {
   type Node,
   type NodeProps,
 } from "@xyflow/react";
+import { demoProfiles } from "@/lib/demo-profiles";
+import {
+  rankActions,
+  type RubricComponent,
+} from "@/lib/recommendation-engine";
 
 export type GraphNodeRecord = {
   id: string;
@@ -28,7 +33,23 @@ export type GraphEdgeRecord = {
   source_id: string;
   target_id: string;
   relationship_type: string;
+  evidence_class: string | null;
   confidence: string | null;
+};
+
+export type EvidenceLinkRecord = {
+  edge_id: string;
+  evidence_id: string;
+  evidence_role: string;
+};
+
+export type EvidenceRecord = {
+  evidence_id: string;
+  atomic_claim: string;
+  claim_class: string;
+  limitations: string;
+  relevance_to_trajectory: string | null;
+  source_url: string;
 };
 
 type Stage = "exploring" | "building" | "applying";
@@ -93,6 +114,16 @@ const typeLabels: Record<string, string> = {
   scholarship: "Funding",
 };
 
+const impactLabels: Record<string, string> = {
+  gap_reduction: "Closes your largest gap",
+  downstream_value: "Preserves downstream options",
+  evidence_strength: "Strength of supporting evidence",
+  mission_relevance: "Fits the selected pathway",
+  feasibility: "Feasible from your current state",
+  time_utility: "Useful at this point in your timeline",
+  uncertainty: "Uncertainty penalty",
+};
+
 const priorityByStage: Record<Stage, string[]> = {
   exploring: ["course", "professor", "club", "extracurricular", "research_lab", "internship", "scholarship"],
   building: ["research_lab", "internship", "extracurricular", "course", "professor", "club", "scholarship"],
@@ -103,9 +134,11 @@ function statusForNode(
   node: GraphNodeRecord,
   level: number,
   index: number,
-  maxDepth: number
+  maxDepth: number,
+  recommendedNodeId: string
 ): PathStatus {
   if (node.type === "goal") return "goal";
+  if (node.id === recommendedNodeId) return "active";
   if (level === 1 && index === 0) return "gap";
   if (level === 1 && index === 1) return "blocked";
   if (level === maxDepth && (index === 2 || index === 3)) return "completed";
@@ -155,7 +188,8 @@ function buildPathway(
   records: GraphNodeRecord[],
   edgeRecords: GraphEdgeRecord[],
   goalId: string,
-  stage: Stage
+  stage: Stage,
+  recommendedNodeId: string
 ) {
   const stageConfig = stages.find((item) => item.id === stage)!;
   const nodeById = new Map(records.map((node) => [node.id, node]));
@@ -215,7 +249,7 @@ function buildPathway(
         eyebrow: typeLabels[node.type] ?? node.type,
         title: node.name,
         detail: detailForNode(node),
-        status: statusForNode(node, level, index, stageConfig.depth),
+        status: statusForNode(node, level, index, stageConfig.depth, recommendedNodeId),
       },
     };
   });
@@ -269,18 +303,64 @@ function buildPathway(
 export function TrajectoryGraph({
   graphNodes,
   graphEdges,
+  rubricComponents,
+  evidenceLinks,
+  evidenceRecords,
 }: {
   graphNodes: GraphNodeRecord[];
   graphEdges: GraphEdgeRecord[];
+  rubricComponents: RubricComponent[];
+  evidenceLinks: EvidenceLinkRecord[];
+  evidenceRecords: EvidenceRecord[];
 }) {
   const goals = graphNodes.filter((node) => node.type === "goal");
   const [goalId, setGoalId] = useState(goals[0]?.id ?? "");
   const [stage, setStage] = useState<Stage>("building");
+  const [profileId, setProfileId] = useState(demoProfiles[0].id);
   const [started, setStarted] = useState(false);
-  const pathway = useMemo(
-    () => buildPathway(graphNodes, graphEdges, goalId, stage),
-    [graphNodes, graphEdges, goalId, stage]
+  const [view, setView] = useState<"graph" | "recommendation" | "evidence">("graph");
+  const [completedActions, setCompletedActions] = useState<string[]>([]);
+  const [stateMessage, setStateMessage] = useState("");
+  const baseProfile = demoProfiles.find((profile) => profile.id === profileId) ?? demoProfiles[0];
+  const profile = useMemo(
+    () => ({
+      ...baseProfile,
+      completedNodeNames: [...baseProfile.completedNodeNames, ...completedActions],
+    }),
+    [baseProfile, completedActions]
   );
+  const rankedActions = useMemo(
+    () => rankActions(profile, graphNodes, graphEdges, rubricComponents),
+    [profile, graphNodes, graphEdges, rubricComponents]
+  );
+  const topAction = rankedActions[0];
+  const pathway = useMemo(
+    () => buildPathway(graphNodes, graphEdges, goalId, stage, topAction?.node.id ?? ""),
+    [graphNodes, graphEdges, goalId, stage, topAction?.node.id]
+  );
+
+  const supportingEvidence = useMemo(() => {
+    if (!topAction) return [];
+    const edgeIds = new Set(
+      graphEdges
+        .filter((edge) => edge.source_id === topAction.node.id)
+        .map((edge) => edge.id)
+    );
+    const evidenceIds = new Set(
+      evidenceLinks
+        .filter((link) => edgeIds.has(link.edge_id))
+        .map((link) => link.evidence_id)
+    );
+    return evidenceRecords.filter((record) => evidenceIds.has(record.evidence_id)).slice(0, 3);
+  }, [topAction, graphEdges, evidenceLinks, evidenceRecords]);
+
+  function completeTopAction() {
+    if (!topAction) return;
+    const completedLabel = topAction.actionLabel;
+    setCompletedActions((current) => [...current, topAction.node.name]);
+    setStateMessage(`${completedLabel} marked complete. Your next action has been recalculated.`);
+    setView("recommendation");
+  }
 
   if (!started) {
     return (
@@ -333,7 +413,35 @@ export function TrajectoryGraph({
             </div>
           </fieldset>
 
-          <button type="button" onClick={() => setStarted(true)} disabled={!goalId}>
+          <fieldset>
+            <legend>03 · Choose a demo profile</legend>
+            <div className="onboarding-profile-grid">
+              {demoProfiles.map((item) => (
+                <label key={item.id} className="onboarding-profile" data-active={profileId === item.id}>
+                  <input
+                    type="radio"
+                    name="profile"
+                    value={item.id}
+                    checked={profileId === item.id}
+                    onChange={() => setProfileId(item.id)}
+                  />
+                  <strong>{item.label}</strong>
+                  <span>{item.summary}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <button
+            type="button"
+            onClick={() => {
+              setCompletedActions([]);
+              setStateMessage("");
+              setView("graph");
+              setStarted(true);
+            }}
+            disabled={!goalId}
+          >
             Map my trajectory <span>→</span>
           </button>
         </div>
@@ -342,6 +450,98 @@ export function TrajectoryGraph({
   }
 
   const goal = goals.find((item) => item.id === goalId);
+
+  if (view === "recommendation" && topAction) {
+    return (
+      <section className="journey-detail" aria-labelledby="recommendation-title">
+        <div className="journey-progress" aria-label="Demo progress">
+          <span data-complete="true">Onboarding</span>
+          <span data-complete="true">Graph</span>
+          <span data-active="true">Highest-impact action</span>
+          <span>Evidence</span>
+          <span>State change</span>
+        </div>
+        <button className="journey-back" type="button" onClick={() => setView("graph")}>
+          ← Back to graph
+        </button>
+        {stateMessage ? <p className="state-update-message">{stateMessage}</p> : null}
+        <div className="journey-action-card">
+          <p className="trajectory-kicker">HIGHEST IMPACT THIS WEEK</p>
+          <div className="journey-action-card__heading">
+            <h1 id="recommendation-title">{topAction.actionLabel}</h1>
+            <strong>{topAction.score}</strong>
+          </div>
+          <p>
+            This is the strongest eligible move for the {baseProfile.label.toLowerCase()} profile.
+            It addresses the <strong>{topAction.addressedGap}</strong> gap and unlocks or supports {topAction.unlockCount} downstream pathway connection{topAction.unlockCount === 1 ? "" : "s"}.
+          </p>
+          <div className="journey-metrics">
+            <span><strong>{topAction.impact}</strong> impact</span>
+            <span><strong>Class {topAction.evidenceClass}</strong> evidence</span>
+            <span><strong>{topAction.confidence}</strong> confidence</span>
+          </div>
+          <div className="journey-breakdown">
+            {Object.entries(topAction.breakdown).map(([key, points]) => (
+              <div key={key}>
+                <span>{impactLabels[key] ?? key}</span>
+                <strong>{key === "uncertainty" ? "−" : "+"}{points}</strong>
+              </div>
+            ))}
+          </div>
+          <small>Action Impact is a transparent relative-ranking heuristic, not an acceptance probability.</small>
+          <button className="journey-primary" type="button" onClick={() => setView("evidence")}>
+            Review supporting evidence <span>→</span>
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  if (view === "evidence" && topAction) {
+    return (
+      <section className="journey-detail" aria-labelledby="evidence-title">
+        <div className="journey-progress" aria-label="Demo progress">
+          <span data-complete="true">Onboarding</span>
+          <span data-complete="true">Graph</span>
+          <span data-complete="true">Highest-impact action</span>
+          <span data-active="true">Evidence</span>
+          <span>State change</span>
+        </div>
+        <button className="journey-back" type="button" onClick={() => setView("recommendation")}>
+          ← Back to recommendation
+        </button>
+        <div className="evidence-panel">
+          <p className="trajectory-kicker">WHY THIS RECOMMENDATION</p>
+          <h1 id="evidence-title">Evidence, boundaries, and confidence.</h1>
+          <p>
+            The recommendation combines your current gap, eligibility, timing, downstream value,
+            and the evidence attached to this action&apos;s graph relationships.
+          </p>
+          <div className="evidence-list">
+            {supportingEvidence.length > 0 ? supportingEvidence.map((record) => (
+              <article key={record.evidence_id}>
+                <div><span>Claim class {record.claim_class}</span><i>{record.evidence_id}</i></div>
+                <h2>{record.atomic_claim}</h2>
+                {record.relevance_to_trajectory ? <p>{record.relevance_to_trajectory}</p> : null}
+                <small><strong>Limitation:</strong> {record.limitations}</small>
+                <a href={record.source_url} target="_blank" rel="noreferrer">Open source ↗</a>
+              </article>
+            )) : (
+              <article>
+                <div><span>Class {topAction.evidenceClass}</span><i>Graph evidence</i></div>
+                <h2>This action is supported by an evidence-labeled pathway relationship.</h2>
+                <p>Confidence is {topAction.confidence}; no linked atomic claim is available for this specific edge.</p>
+                <small><strong>Limitation:</strong> The ranking should be treated as directional guidance.</small>
+              </article>
+            )}
+          </div>
+          <button className="journey-primary" type="button" onClick={completeTopAction}>
+            Mark action complete and recalculate <span>→</span>
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <>
@@ -357,6 +557,24 @@ export function TrajectoryGraph({
           Edit path
         </button>
       </header>
+
+      <div className="journey-progress journey-progress--graph" aria-label="Demo progress">
+        <span data-complete="true">Onboarding</span>
+        <span data-active="true">Graph</span>
+        <span>Highest-impact action</span>
+        <span>Evidence</span>
+        <span>State change</span>
+      </div>
+
+      {topAction ? (
+        <button className="highest-impact-strip" type="button" onClick={() => setView("recommendation")}>
+          <span>
+            <small>HIGHEST IMPACT THIS WEEK · {baseProfile.label.toUpperCase()}</small>
+            <strong>{topAction.actionLabel}</strong>
+          </span>
+          <i>{topAction.score} points →</i>
+        </button>
+      ) : null}
 
       <section className="trajectory-graph-frame" aria-label="Trajectory graph">
         <div className="trajectory-graph-frame__topline">
