@@ -39,6 +39,7 @@ export type DemoProfile = {
   completedNodeNames: string[];
   blockedNodeNames: string[];
   urgency: "normal" | "deadline";
+  priorityNodeName?: string;
 };
 
 export type RankedAction = {
@@ -148,9 +149,14 @@ export function rankActions(
             (evidenceFraction[b.evidence_class ?? ""] ?? 0) -
             (evidenceFraction[a.evidence_class ?? ""] ?? 0)
         )[0];
-      const evidenceClass = support?.evidence_class ?? "Unclassified";
-      const evidenceStrength = evidenceFraction[support?.evidence_class ?? ""] ?? 0.13;
-      const confidence = support?.confidence ?? "unknown";
+      const isPriorityRecovery = profile.priorityNodeName === node.name;
+      const evidenceClass = isPriorityRecovery
+        ? "Graph prerequisite"
+        : support?.evidence_class ?? "Unclassified";
+      const evidenceStrength = isPriorityRecovery
+        ? 1
+        : evidenceFraction[support?.evidence_class ?? ""] ?? 0.13;
+      const confidence = isPriorityRecovery ? "high" : support?.confidence ?? "unknown";
       const metadataText = JSON.stringify(node.metadata ?? {}).toLowerCase();
       const missionFit = /columbia|morningside|cuems|surf/.test(`${node.name} ${metadataText}`.toLowerCase());
       const hasDeadline = Boolean(node.metadata?.deadline);

@@ -340,13 +340,29 @@ export function TrajectoryGraph({
   const [rerouteScenario, setRerouteScenario] = useState<"none" | "rejection" | "opportunity">("none");
   const [rerouteBefore, setRerouteBefore] = useState("");
   const [rejectedNodeName, setRejectedNodeName] = useState("");
+  const [organicChemistryWhatIf, setOrganicChemistryWhatIf] = useState(false);
   const baseProfile = demoProfiles.find((profile) => profile.id === profileId) ?? demoProfiles[0];
   const profile = useMemo(
     () => ({
       ...baseProfile,
-      completedNodeNames: [...baseProfile.completedNodeNames, ...completedActions],
+      gaps: organicChemistryWhatIf
+        ? { ...baseProfile.gaps, academic: 1, research: 0.45, planning: 0.75 }
+        : baseProfile.gaps,
+      completedNodeNames: [
+        ...baseProfile.completedNodeNames.filter(
+          (name) => !organicChemistryWhatIf || name !== "CHEM UN2443 Organic Chemistry I"
+        ),
+        ...completedActions,
+      ],
       blockedNodeNames:
-        rerouteScenario === "opportunity"
+        organicChemistryWhatIf
+          ? [
+              ...baseProfile.blockedNodeNames,
+              "CHEM UN2444 Organic Chemistry II",
+              "CHEM UN2493/2494 Organic Chemistry Laboratory",
+              "BIOC UN3300 Biochemistry",
+            ]
+          : rerouteScenario === "opportunity"
           ? baseProfile.blockedNodeNames.filter(
               (name) => name !== "Columbia SURF (Summer Undergraduate Research Fellowship)"
             )
@@ -355,14 +371,21 @@ export function TrajectoryGraph({
               ...(rerouteScenario === "rejection" && rejectedNodeName ? [rejectedNodeName] : []),
             ],
       urgency: rerouteScenario === "opportunity" ? "deadline" as const : baseProfile.urgency,
+      priorityNodeName: organicChemistryWhatIf
+        ? "CHEM UN2443 Organic Chemistry I"
+        : undefined,
     }),
-    [baseProfile, completedActions, rerouteScenario, rejectedNodeName]
+    [baseProfile, completedActions, rerouteScenario, rejectedNodeName, organicChemistryWhatIf]
   );
   const rankedActions = useMemo(
     () => rankActions(profile, graphNodes, graphEdges, rubricComponents),
     [profile, graphNodes, graphEdges, rubricComponents]
   );
   const topAction = rankedActions[0];
+  const whatIfBaseline = useMemo(
+    () => rankActions(demoProfiles[0], graphNodes, graphEdges, rubricComponents)[0],
+    [graphNodes, graphEdges, rubricComponents]
+  );
   const pathway = useMemo(
     () => buildPathway(
       graphNodes,
@@ -409,6 +432,7 @@ export function TrajectoryGraph({
     setRerouteBefore(baseline.actionLabel);
     setRejectedNodeName(baseline.node.name);
     setRerouteScenario("rejection");
+    setOrganicChemistryWhatIf(false);
   }
 
   function runOpportunityDemo() {
@@ -421,12 +445,23 @@ export function TrajectoryGraph({
     setRerouteBefore(baseline.actionLabel);
     setRejectedNodeName("");
     setRerouteScenario("opportunity");
+    setOrganicChemistryWhatIf(false);
   }
 
   function resetRerouteDemo() {
     setRerouteScenario("none");
     setRerouteBefore("");
     setRejectedNodeName("");
+  }
+
+  function runOrganicChemistryWhatIf() {
+    setProfileId(demoProfiles[0].id);
+    setCompletedActions([]);
+    setStateMessage("");
+    setRerouteScenario("none");
+    setRerouteBefore("");
+    setRejectedNodeName("");
+    setOrganicChemistryWhatIf(true);
   }
 
   if (!started) {
@@ -507,6 +542,7 @@ export function TrajectoryGraph({
               setRerouteScenario("none");
               setRerouteBefore("");
               setRejectedNodeName("");
+              setOrganicChemistryWhatIf(false);
               setView("graph");
               setStarted(true);
             }}
@@ -675,6 +711,36 @@ export function TrajectoryGraph({
             </span>
           </div>
         ) : null}
+      </section>
+
+      <section className="what-if-demo" aria-labelledby="what-if-title">
+        <div className="what-if-demo__heading">
+          <span>
+            <small>WHAT IF?</small>
+            <strong id="what-if-title">What happens if I don&apos;t take Organic Chemistry I?</strong>
+          </span>
+          <button type="button" onClick={organicChemistryWhatIf ? () => setOrganicChemistryWhatIf(false) : runOrganicChemistryWhatIf}>
+            {organicChemistryWhatIf ? "Restore original plan" : "Skip Organic Chemistry I"}
+          </button>
+        </div>
+        {organicChemistryWhatIf && topAction ? (
+          <div className="what-if-comparison" aria-live="polite">
+            <article>
+              <small>BEFORE</small>
+              <strong>Academic foundation on track</strong>
+              <p>Organic Chemistry II, Organic Chemistry Laboratory, and Biochemistry remain reachable in sequence.</p>
+              <span>{whatIfBaseline?.actionLabel ?? "Original recommendation preserved"}</span>
+            </article>
+            <article data-changed="true">
+              <small>AFTER SKIPPING</small>
+              <strong>Three downstream courses become blocked</strong>
+              <p>The sequence pauses until Organic Chemistry I is completed. The shortest recovery route is the next available term or summer offering.</p>
+              <span>New recommendation: {topAction.actionLabel}</span>
+            </article>
+          </div>
+        ) : (
+          <p>Test the downstream effects and best recovery route without changing the saved pathway.</p>
+        )}
       </section>
 
       <section className="trajectory-graph-frame" aria-label="Trajectory graph">
