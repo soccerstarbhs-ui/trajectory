@@ -135,9 +135,13 @@ function statusForNode(
   level: number,
   index: number,
   maxDepth: number,
-  recommendedNodeId: string
+  recommendedNodeId: string,
+  completedNodeNames: Set<string>,
+  blockedNodeNames: Set<string>
 ): PathStatus {
   if (node.type === "goal") return "goal";
+  if (completedNodeNames.has(node.name)) return "completed";
+  if (blockedNodeNames.has(node.name)) return "blocked";
   if (node.id === recommendedNodeId) return "active";
   if (level === 1 && index === 0) return "gap";
   if (level === 1 && index === 1) return "blocked";
@@ -189,11 +193,15 @@ function buildPathway(
   edgeRecords: GraphEdgeRecord[],
   goalId: string,
   stage: Stage,
-  recommendedNodeId: string
+  recommendedNodeId: string,
+  completedNodeNames: string[],
+  blockedNodeNames: string[]
 ) {
   const stageConfig = stages.find((item) => item.id === stage)!;
   const nodeById = new Map(records.map((node) => [node.id, node]));
   const selected = new Set([goalId]);
+  const completed = new Set(completedNodeNames);
+  const blocked = new Set(blockedNodeNames);
   const distance = new Map([[goalId, 0]]);
   let frontier = [goalId];
 
@@ -249,7 +257,15 @@ function buildPathway(
         eyebrow: typeLabels[node.type] ?? node.type,
         title: node.name,
         detail: detailForNode(node),
-        status: statusForNode(node, level, index, stageConfig.depth, recommendedNodeId),
+        status: statusForNode(
+          node,
+          level,
+          index,
+          stageConfig.depth,
+          recommendedNodeId,
+          completed,
+          blocked
+        ),
       },
     };
   });
@@ -321,13 +337,26 @@ export function TrajectoryGraph({
   const [view, setView] = useState<"graph" | "recommendation" | "evidence">("graph");
   const [completedActions, setCompletedActions] = useState<string[]>([]);
   const [stateMessage, setStateMessage] = useState("");
+  const [rerouteScenario, setRerouteScenario] = useState<"none" | "rejection" | "opportunity">("none");
+  const [rerouteBefore, setRerouteBefore] = useState("");
+  const [rejectedNodeName, setRejectedNodeName] = useState("");
   const baseProfile = demoProfiles.find((profile) => profile.id === profileId) ?? demoProfiles[0];
   const profile = useMemo(
     () => ({
       ...baseProfile,
       completedNodeNames: [...baseProfile.completedNodeNames, ...completedActions],
+      blockedNodeNames:
+        rerouteScenario === "opportunity"
+          ? baseProfile.blockedNodeNames.filter(
+              (name) => name !== "Columbia SURF (Summer Undergraduate Research Fellowship)"
+            )
+          : [
+              ...baseProfile.blockedNodeNames,
+              ...(rerouteScenario === "rejection" && rejectedNodeName ? [rejectedNodeName] : []),
+            ],
+      urgency: rerouteScenario === "opportunity" ? "deadline" as const : baseProfile.urgency,
     }),
-    [baseProfile, completedActions]
+    [baseProfile, completedActions, rerouteScenario, rejectedNodeName]
   );
   const rankedActions = useMemo(
     () => rankActions(profile, graphNodes, graphEdges, rubricComponents),
@@ -335,8 +364,16 @@ export function TrajectoryGraph({
   );
   const topAction = rankedActions[0];
   const pathway = useMemo(
-    () => buildPathway(graphNodes, graphEdges, goalId, stage, topAction?.node.id ?? ""),
-    [graphNodes, graphEdges, goalId, stage, topAction?.node.id]
+    () => buildPathway(
+      graphNodes,
+      graphEdges,
+      goalId,
+      stage,
+      topAction?.node.id ?? "",
+      profile.completedNodeNames,
+      profile.blockedNodeNames
+    ),
+    [graphNodes, graphEdges, goalId, stage, topAction?.node.id, profile]
   );
 
   const supportingEvidence = useMemo(() => {
@@ -360,6 +397,36 @@ export function TrajectoryGraph({
     setCompletedActions((current) => [...current, topAction.node.name]);
     setStateMessage(`${completedLabel} marked complete. Your next action has been recalculated.`);
     setView("recommendation");
+  }
+
+  function runRejectionDemo() {
+    const researchProfile = demoProfiles[0];
+    const baseline = rankActions(researchProfile, graphNodes, graphEdges, rubricComponents)[0];
+    if (!baseline) return;
+    setProfileId(researchProfile.id);
+    setCompletedActions([]);
+    setStateMessage("");
+    setRerouteBefore(baseline.actionLabel);
+    setRejectedNodeName(baseline.node.name);
+    setRerouteScenario("rejection");
+  }
+
+  function runOpportunityDemo() {
+    const researchProfile = demoProfiles[0];
+    const baseline = rankActions(researchProfile, graphNodes, graphEdges, rubricComponents)[0];
+    if (!baseline) return;
+    setProfileId(researchProfile.id);
+    setCompletedActions([]);
+    setStateMessage("");
+    setRerouteBefore(baseline.actionLabel);
+    setRejectedNodeName("");
+    setRerouteScenario("opportunity");
+  }
+
+  function resetRerouteDemo() {
+    setRerouteScenario("none");
+    setRerouteBefore("");
+    setRejectedNodeName("");
   }
 
   if (!started) {
@@ -437,6 +504,9 @@ export function TrajectoryGraph({
             onClick={() => {
               setCompletedActions([]);
               setStateMessage("");
+              setRerouteScenario("none");
+              setRerouteBefore("");
+              setRejectedNodeName("");
               setView("graph");
               setStarted(true);
             }}
@@ -575,6 +645,37 @@ export function TrajectoryGraph({
           <i>{topAction.score} points →</i>
         </button>
       ) : null}
+
+      <section className="reroute-demo" aria-labelledby="reroute-demo-title">
+        <div>
+          <small>CURATED REROUTING DEMOS</small>
+          <strong id="reroute-demo-title">Change the facts. Watch the route adapt.</strong>
+        </div>
+        <div className="reroute-demo__controls">
+          <button type="button" data-active={rerouteScenario === "rejection"} onClick={runRejectionDemo}>
+            Simulate research rejection
+          </button>
+          <button type="button" data-active={rerouteScenario === "opportunity"} onClick={runOpportunityDemo}>
+            Announce Columbia fellowship
+          </button>
+          {rerouteScenario !== "none" ? (
+            <button className="reroute-reset" type="button" onClick={resetRerouteDemo}>Reset</button>
+          ) : null}
+        </div>
+        {rerouteScenario !== "none" && topAction ? (
+          <div className="reroute-result" aria-live="polite">
+            <span>
+              <small>BEFORE</small>
+              <strong>{rerouteBefore}</strong>
+            </span>
+            <i>→</i>
+            <span>
+              <small>{rerouteScenario === "rejection" ? "BEST AVAILABLE ALTERNATIVE" : "NEW ROUTE · 11/12 ELIGIBILITY VERIFIED"}</small>
+              <strong>{topAction.actionLabel}</strong>
+            </span>
+          </div>
+        ) : null}
+      </section>
 
       <section className="trajectory-graph-frame" aria-label="Trajectory graph">
         <div className="trajectory-graph-frame__topline">
