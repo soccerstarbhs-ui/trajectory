@@ -1,9 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 type MotionPhase = "orbiting" | "approaching" | "launching";
+type Point = { x: number; y: number };
+type MotionFrame = { ball: Point; trail: Point[] };
 
 const CENTER = { x: 314, y: 324 };
 const RADIUS = 123;
@@ -20,7 +23,10 @@ function pointOnOrbit(angle: number) {
 export function OrbitLanding() {
   const router = useRouter();
   const [phase, setPhase] = useState<MotionPhase>("orbiting");
-  const [ball, setBall] = useState(() => pointOnOrbit(Math.PI / 2));
+  const [motion, setMotion] = useState<MotionFrame>(() => ({
+    ball: pointOnOrbit(Math.PI / 2),
+    trail: [],
+  }));
   const phaseRef = useRef<MotionPhase>("orbiting");
   const angleRef = useRef(Math.PI / 2);
   const launchStartRef = useRef(0);
@@ -35,6 +41,13 @@ export function OrbitLanding() {
   useEffect(() => {
     let frame = 0;
 
+    const moveBall = (nextBall: Point) => {
+      setMotion((current) => ({
+        ball: nextBall,
+        trail: [...current.trail.slice(-10), current.ball],
+      }));
+    };
+
     const animate = (time: number) => {
       const previous = previousTimeRef.current || time;
       const delta = Math.min((time - previous) / 1000, 0.04);
@@ -42,27 +55,27 @@ export function OrbitLanding() {
 
       if (phaseRef.current === "orbiting") {
         angleRef.current = (angleRef.current + delta * 0.72) % (Math.PI * 2);
-        setBall(pointOnOrbit(angleRef.current));
+        moveBall(pointOnOrbit(angleRef.current));
       } else if (phaseRef.current === "approaching") {
         const remaining = (TOP_ANGLE - angleRef.current + Math.PI * 2) % (Math.PI * 2);
         const step = delta * 1.45;
 
         if (remaining <= step || remaining < 0.012) {
           angleRef.current = TOP_ANGLE;
-          setBall(pointOnOrbit(TOP_ANGLE));
+          moveBall(pointOnOrbit(TOP_ANGLE));
           phaseRef.current = "launching";
           setPhase("launching");
           launchStartRef.current = time;
         } else {
           angleRef.current = (angleRef.current + step) % (Math.PI * 2);
-          setBall(pointOnOrbit(angleRef.current));
+          moveBall(pointOnOrbit(angleRef.current));
         }
       } else {
         const elapsed = time - launchStartRef.current;
         const rawProgress = Math.min(elapsed / 1120, 1);
         const progress = 1 - Math.pow(1 - rawProgress, 3);
         const start = pointOnOrbit(TOP_ANGLE);
-        setBall({
+        moveBall({
           x: start.x + (MEDICAL_END.x - start.x) * progress,
           y: start.y + (MEDICAL_END.y - start.y) * progress,
         });
@@ -82,15 +95,16 @@ export function OrbitLanding() {
 
   const tetherVisible = phase !== "launching";
   const medicalActive = phase !== "orbiting";
+  const ball = motion.ball;
 
   return (
     <main className="orbit-page">
       <div className="orbit-page__stars" aria-hidden="true" />
       <header className="orbit-nav" aria-label="Trajectory home">
-        <a href="/" className="orbit-brand" aria-label="Trajectory home">
+        <Link href="/" className="orbit-brand" aria-label="Trajectory home">
           <span className="orbit-brand__mark" aria-hidden="true"><i /></span>
           TRAJECTORY
-        </a>
+        </Link>
         <span className="orbit-nav__tag">YOUR PATH, IN MOTION</span>
       </header>
 
@@ -132,6 +146,17 @@ export function OrbitLanding() {
             {tetherVisible ? <line className="orbit-tether" x1={CENTER.x} y1={CENTER.y} x2={ball.x} y2={ball.y} /> : null}
             <circle className="orbit-anchor" cx={CENTER.x} cy={CENTER.y} r="9" />
             <circle className="orbit-anchor-core" cx={CENTER.x} cy={CENTER.y} r="4" />
+            <g className="orbit-trail" aria-hidden="true">
+              {motion.trail.map((point, index) => (
+                <circle
+                  key={index}
+                  cx={point.x}
+                  cy={point.y}
+                  r={3.5 + index * 0.25}
+                  opacity={(index + 1) / (motion.trail.length + 1) * 0.5}
+                />
+              ))}
+            </g>
             <circle className="orbit-ball" cx={ball.x} cy={ball.y} r="17" fill="url(#ball-fill)" filter="url(#ball-glow)" />
 
             <g className="destination-label destination-label--inactive" transform="translate(620 52)"><rect width="137" height="50" rx="13" /><text x="18" y="31">Law School</text></g>
