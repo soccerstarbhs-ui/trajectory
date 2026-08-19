@@ -19,6 +19,7 @@ import {
   rankActions,
   type RubricComponent,
 } from "@/lib/recommendation-engine";
+import { CheckpointProof } from "@/components/checkpoint-proof";
 
 export type GraphNodeRecord = {
   id: string;
@@ -47,9 +48,16 @@ export type EvidenceRecord = {
   evidence_id: string;
   atomic_claim: string;
   claim_class: string;
+  source_id: string;
+  source_tier: string | null;
+  sourceTitle: string;
+  population: string | null;
+  correlation_or_causation: string;
   limitations: string;
   relevance_to_trajectory: string | null;
   source_url: string;
+  verification_status: string;
+  access_date: string | null;
 };
 
 type Stage = "exploring" | "building" | "applying";
@@ -60,6 +68,7 @@ type TrajectoryNodeData = {
   title: string;
   detail: string;
   status: PathStatus;
+  nodeType: string;
 };
 
 type TrajectoryNode = Node<TrajectoryNodeData, "trajectory">;
@@ -101,6 +110,18 @@ const statusLabels: Record<PathStatus, string> = {
   blocked: "Blocked",
   gap: "Gap",
   goal: "Goal",
+};
+
+const typeColors: Record<string, string> = {
+  course: "#38bdf8",
+  research_lab: "#c084fc",
+  professor: "#f472b6",
+  extracurricular: "#2dd4bf",
+  internship: "#fb923c",
+  scholarship: "#facc15",
+  club: "#a3e635",
+  goal: "#fbbf24",
+  current: "#a78bfa",
 };
 
 const typeLabels: Record<string, string> = {
@@ -166,13 +187,14 @@ function detailForNode(node: GraphNodeRecord) {
 
 function TrajectoryNodeCard({ data, selected }: NodeProps<TrajectoryNode>) {
   const color = statusColors[data.status];
+  const typeColor = typeColors[data.nodeType] ?? "#94a3b8";
 
   return (
     <div
       className="trajectory-node"
       data-selected={selected}
       data-status={data.status}
-      style={{ "--node-accent": color } as React.CSSProperties}
+      style={{ "--node-accent": color, "--type-accent": typeColor } as React.CSSProperties}
     >
       <Handle type="target" position={Position.Left} />
       <span className="trajectory-node__topline">
@@ -266,6 +288,7 @@ function buildPathway(
           completed,
           blocked
         ),
+        nodeType: node.type,
       },
     };
   });
@@ -279,6 +302,7 @@ function buildPathway(
       title: stageConfig.title,
       detail: stageConfig.detail,
       status: "active",
+      nodeType: "current",
     },
   });
 
@@ -628,6 +652,15 @@ export function TrajectoryGraph({
               <article key={record.evidence_id}>
                 <div><span>Claim class {record.claim_class}</span><i>{record.evidence_id}</i></div>
                 <h2>{record.atomic_claim}</h2>
+                <h3>{record.sourceTitle}</h3>
+                <dl className="evidence-metadata">
+                  <div><dt>Evidence type</dt><dd>{record.source_tier ?? `Class ${record.claim_class}`}</dd></div>
+                  <div><dt>Population</dt><dd>{record.population ?? "Not specified"}</dd></div>
+                  <div><dt>Confidence</dt><dd>{topAction.confidence}</dd></div>
+                  <div><dt>Causal label</dt><dd>{record.correlation_or_causation}</dd></div>
+                  <div><dt>Last checked</dt><dd>{record.access_date ?? "Not recorded"}</dd></div>
+                  <div><dt>Verification</dt><dd>{record.verification_status}</dd></div>
+                </dl>
                 {record.relevance_to_trajectory ? <p>{record.relevance_to_trajectory}</p> : null}
                 <small><strong>Limitation:</strong> {record.limitations}</small>
                 <a href={record.source_url} target="_blank" rel="noreferrer">Open source ↗</a>
@@ -680,7 +713,12 @@ export function TrajectoryGraph({
           </span>
           <i>{topAction.score} points →</i>
         </button>
-      ) : null}
+      ) : (
+        <section className="recommendation-empty" role="status">
+          <strong>No eligible action is available yet.</strong>
+          <span>Review blocked prerequisites or edit the student profile to reopen the route.</span>
+        </section>
+      )}
 
       <section className="reroute-demo" aria-labelledby="reroute-demo-title">
         <div>
@@ -784,6 +822,7 @@ export function TrajectoryGraph({
           </div>
         </div>
       </section>
+      <CheckpointProof />
     </>
   );
 }

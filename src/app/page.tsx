@@ -15,6 +15,7 @@ export default async function Home() {
     { data: rubricVersion, error: versionError },
     { data: evidenceLinks, error: linkError },
     { data: evidenceRecords, error: evidenceError },
+    { data: evidenceSources, error: sourceError },
   ] =
     await Promise.all([
       supabaseAdmin
@@ -34,10 +35,13 @@ export default async function Home() {
         .select("edge_id, evidence_id, evidence_role"),
       supabaseAdmin
         .from("evidence_records")
-        .select("evidence_id, atomic_claim, claim_class, limitations, relevance_to_trajectory, source_url"),
+        .select("evidence_id, atomic_claim, claim_class, source_id, source_tier, population, correlation_or_causation, limitations, relevance_to_trajectory, source_url, verification_status, access_date"),
+      supabaseAdmin
+        .from("evidence_sources")
+        .select("source_id, title"),
     ]);
 
-  if (nodeError || edgeError || versionError || linkError || evidenceError) {
+  if (nodeError || edgeError || versionError || linkError || evidenceError || sourceError) {
     return (
       <main className="trajectory-shell trajectory-error">
         <p className="trajectory-kicker">TRAJECTORY</p>
@@ -62,6 +66,10 @@ export default async function Home() {
     );
   }
 
+  const evidenceSourceTitles = new Map(
+    (evidenceSources ?? []).map((source) => [source.source_id, source.title])
+  );
+
   return (
     <main className="trajectory-shell">
       <TrajectoryGraph
@@ -72,7 +80,10 @@ export default async function Home() {
           max_points: Number(component.max_points),
         })) as RubricComponent[]}
         evidenceLinks={evidenceLinks ?? []}
-        evidenceRecords={evidenceRecords ?? []}
+        evidenceRecords={(evidenceRecords ?? []).map((record) => ({
+          ...record,
+          sourceTitle: evidenceSourceTitles.get(record.source_id) ?? record.source_id,
+        }))}
       />
     </main>
   );
