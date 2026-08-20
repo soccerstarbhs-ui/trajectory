@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 type CourseStatus = "planned" | "in_progress" | "completed";
@@ -97,6 +98,7 @@ function newId() {
 }
 
 export function ApplicantProfileForm() {
+  const router = useRouter();
   const [basic, setBasic] = useState<BasicProfile>(emptyBasic);
   const [courses, setCourses] = useState<Course[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -110,13 +112,13 @@ export function ApplicantProfileForm() {
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeProfile, setResumeProfile] = useState<ResumeProfile | null>(null);
   const [resumeActivities, setResumeActivities] = useState<ResumeActivity[]>([]);
-  const [showAllResumeActivities, setShowAllResumeActivities] = useState(false);
   const [resumeNotes, setResumeNotes] = useState<string[]>([]);
   const [resumeError, setResumeError] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [transcriptFile, setTranscriptFile] = useState<File | null>(null);
   const [transcriptCourses, setTranscriptCourses] = useState<TranscriptCourse[]>([]);
-  const [showAllTranscriptCourses, setShowAllTranscriptCourses] = useState(false);
+  const [showAllCourses, setShowAllCourses] = useState(false);
+  const [showAllActivities, setShowAllActivities] = useState(false);
   const [transcriptNotes, setTranscriptNotes] = useState<string[]>([]);
   const [transcriptCatalog, setTranscriptCatalog] = useState<TranscriptResult["catalog"] | null>(null);
   const [transcriptError, setTranscriptError] = useState("");
@@ -238,6 +240,7 @@ export function ApplicantProfileForm() {
     event.preventDefault();
     window.localStorage.setItem(storageKey, JSON.stringify({ basic, courses, activities }));
     setSaved(true);
+    router.push("/trajectory");
   }
 
   async function scanResume() {
@@ -270,7 +273,6 @@ export function ApplicantProfileForm() {
       setResumeProfile(result.profile);
       setResumeActivities(result.activities.map((activity) => ({ ...activity, hours: "", selected: true })));
       setResumeNotes(result.notes);
-      setShowAllResumeActivities(false);
     } catch (error) {
       setResumeError(error instanceof Error ? error.message : "Resume scanning failed.");
     } finally {
@@ -310,7 +312,6 @@ export function ApplicantProfileForm() {
     setResumeActivities([]);
     setResumeNotes([]);
     setResumeFile(null);
-    setShowAllResumeActivities(false);
     setSaved(false);
   }
 
@@ -344,7 +345,6 @@ export function ApplicantProfileForm() {
       setTranscriptCourses(result.courses.map((course) => ({ ...course, selected: true })));
       setTranscriptNotes(result.notes);
       setTranscriptCatalog(result.catalog);
-      setShowAllTranscriptCourses(false);
     } catch (error) {
       setTranscriptError(error instanceof Error ? error.message : "Transcript scanning failed.");
     } finally {
@@ -372,7 +372,6 @@ export function ApplicantProfileForm() {
     setTranscriptNotes([]);
     setTranscriptCatalog(null);
     setTranscriptFile(null);
-    setShowAllTranscriptCourses(false);
     setSaved(false);
   }
 
@@ -443,7 +442,7 @@ export function ApplicantProfileForm() {
                 ) : null}
 
                 <div className="resume-review-list">
-                  {resumeActivities.slice(0, showAllResumeActivities ? undefined : 4).map((activity, index) => (
+                  {resumeActivities.map((activity, index) => (
                     <div className="resume-review-item resume-review-item--activity" key={`${activity.category}-${activity.name}-${index}`}>
                       <label>
                         <input type="checkbox" checked={activity.selected} onChange={(event) => setResumeActivities((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, selected: event.target.checked } : item))} />
@@ -453,12 +452,6 @@ export function ApplicantProfileForm() {
                     </div>
                   ))}
                 </div>
-
-                {resumeActivities.length > 4 ? (
-                  <button className="review-toggle" type="button" onClick={() => setShowAllResumeActivities((current) => !current)}>
-                    {showAllResumeActivities ? "Show less" : `Show all ${resumeActivities.length} activities`}
-                  </button>
-                ) : null}
 
                 {resumeNotes.length > 0 ? <p className="resume-review__notes">{resumeNotes.join(" ")}</p> : null}
                 <button className="resume-apply" type="button" onClick={applyResumeSuggestions}>Add selected items to profile <span>→</span></button>
@@ -507,7 +500,7 @@ export function ApplicantProfileForm() {
                   </p>
                 ) : null}
                 <div className="resume-review-list">
-                  {transcriptCourses.slice(0, showAllTranscriptCourses ? undefined : 5).map((course, index) => (
+                  {transcriptCourses.map((course, index) => (
                     <label className="resume-review-item transcript-course" key={`${course.courseCode}-${course.term}-${index}`}>
                       <input type="checkbox" checked={course.selected} onChange={(event) => setTranscriptCourses((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, selected: event.target.checked } : item))} />
                       <span>
@@ -518,11 +511,6 @@ export function ApplicantProfileForm() {
                     </label>
                   ))}
                 </div>
-                {transcriptCourses.length > 5 ? (
-                  <button className="review-toggle" type="button" onClick={() => setShowAllTranscriptCourses((current) => !current)}>
-                    {showAllTranscriptCourses ? "Show less" : `Show all ${transcriptCourses.length} courses`}
-                  </button>
-                ) : null}
                 {transcriptNotes.length > 0 ? <p className="resume-review__notes">{transcriptNotes.join(" ")}</p> : null}
                 <button className="resume-apply" type="button" onClick={applyTranscriptCourses}>Add selected courses as completed <span>→</span></button>
               </div>
@@ -548,7 +536,7 @@ export function ApplicantProfileForm() {
             <SectionHeading number="02" title="Coursework" detail="Add completed, current, or planned courses that shape your route." />
             {courses.length > 0 ? (
               <div className="profile-record-list">
-                {courses.map((course) => (
+                {courses.slice(0, showAllCourses ? undefined : 5).map((course) => (
                   <article className="profile-record" key={course.id}>
                     <div><small>{statusLabels[course.status]}</small><strong>{course.name}</strong><p>{[course.term, course.grade && `Grade ${course.grade}`].filter(Boolean).join(" · ") || "Details not added"}</p></div>
                     <RecordActions onEdit={() => editCourse(course)} onRemove={() => removeCourse(course.id)} />
@@ -557,8 +545,14 @@ export function ApplicantProfileForm() {
               </div>
             ) : <p className="profile-empty">No coursework added yet.</p>}
 
+            {courses.length > 5 ? (
+              <button className="review-toggle approved-list-toggle" type="button" onClick={() => setShowAllCourses((current) => !current)}>
+                {showAllCourses ? "Show less" : `Show all ${courses.length} courses`}
+              </button>
+            ) : null}
+
             <div className="profile-editor">
-              <EditorTitle title={editingCourseId ? "Edit coursework" : "Add coursework"} editing={Boolean(editingCourseId)} onCancel={() => { setEditingCourseId(null); setCourseDraft(emptyCourse); }} />
+              <EditorTitle title="Add coursework" editing={false} onCancel={() => undefined} />
               <div className="profile-field-grid profile-field-grid--course">
                 <Field label="Course name"><input value={courseDraft.name} onChange={(event) => setCourseDraft({ ...courseDraft, name: event.target.value })} placeholder="Organic Chemistry I" /></Field>
                 <Field label="Status"><select value={courseDraft.status} onChange={(event) => setCourseDraft({ ...courseDraft, status: event.target.value as CourseStatus })}><option value="planned">Planned</option><option value="in_progress">In progress</option><option value="completed">Completed</option></select></Field>
@@ -566,7 +560,7 @@ export function ApplicantProfileForm() {
                 <Field label="Grade"><input value={courseDraft.grade} onChange={(event) => setCourseDraft({ ...courseDraft, grade: event.target.value })} placeholder="A or in progress" /></Field>
               </div>
               {courseError ? <p className="profile-editor__error">{courseError}</p> : null}
-              <button className="profile-add-button" type="button" onClick={saveCourse}>{editingCourseId ? "Save changes" : "+ Add course"}</button>
+              <button className="profile-add-button" type="button" onClick={saveCourse}>+ Add course</button>
             </div>
           </section>
 
@@ -574,7 +568,7 @@ export function ApplicantProfileForm() {
             <SectionHeading number="03" title="Experiences and activities" detail="Clinical work, service, leadership, research, and everything else that matters." />
             {activities.length > 0 ? (
               <div className="profile-record-list">
-                {activities.map((activity) => (
+                {activities.slice(0, showAllActivities ? undefined : 5).map((activity) => (
                   <article className="profile-record profile-record--activity" key={activity.id}>
                     <div><small>{categoryLabels[activity.category]} · {statusLabels[activity.status]}</small><strong>{activity.name}</strong><p>{activity.role}{activity.hours ? ` · ${activity.hours} hours` : ""}</p></div>
                     <RecordActions onEdit={() => editActivity(activity)} onRemove={() => removeActivity(activity.id)} />
@@ -583,8 +577,14 @@ export function ApplicantProfileForm() {
               </div>
             ) : <p className="profile-empty">No experiences added yet.</p>}
 
+            {activities.length > 5 ? (
+              <button className="review-toggle approved-list-toggle" type="button" onClick={() => setShowAllActivities((current) => !current)}>
+                {showAllActivities ? "Show less" : `Show all ${activities.length} activities`}
+              </button>
+            ) : null}
+
             <div className="profile-editor">
-              <EditorTitle title={editingActivityId ? "Edit activity" : "Add an activity"} editing={Boolean(editingActivityId)} onCancel={() => { setEditingActivityId(null); setActivityDraft(emptyActivity); }} />
+              <EditorTitle title="Add an activity" editing={false} onCancel={() => undefined} />
               <div className="profile-field-grid">
                 <Field label="Category"><select value={activityDraft.category} onChange={(event) => setActivityDraft({ ...activityDraft, category: event.target.value as ActivityCategory })}>{Object.entries(categoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
                 <Field label="Activity or organization"><input value={activityDraft.name} onChange={(event) => setActivityDraft({ ...activityDraft, name: event.target.value })} placeholder="Emergency Department volunteer" /></Field>
@@ -596,7 +596,7 @@ export function ApplicantProfileForm() {
                 <Field label="Description" wide><textarea rows={4} value={activityDraft.description} onChange={(event) => setActivityDraft({ ...activityDraft, description: event.target.value })} placeholder="What did you do, who did it serve, and what responsibility did you hold?" /></Field>
               </div>
               {activityError ? <p className="profile-editor__error">{activityError}</p> : null}
-              <button className="profile-add-button" type="button" onClick={saveActivity}>{editingActivityId ? "Save changes" : "+ Add activity"}</button>
+              <button className="profile-add-button" type="button" onClick={saveActivity}>+ Add activity</button>
             </div>
           </section>
         </div>
@@ -619,6 +619,46 @@ export function ApplicantProfileForm() {
           {saved ? <p className="profile-saved" role="status">Profile saved. Gap analysis comes next.</p> : <small>Your information is saved in this browser for the MVP.</small>}
         </aside>
       </form>
+
+      {editingCourseId ? (
+        <div className="profile-edit-overlay" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) { setEditingCourseId(null); setCourseDraft(emptyCourse); }
+        }}>
+          <section className="profile-edit-modal" role="dialog" aria-modal="true" aria-labelledby="edit-course-title">
+            <div className="profile-edit-modal__heading"><div><small>EDIT COURSEWORK</small><h2 id="edit-course-title">{courseDraft.name}</h2></div><button type="button" aria-label="Close editor" onClick={() => { setEditingCourseId(null); setCourseDraft(emptyCourse); }}>×</button></div>
+            <div className="profile-field-grid profile-field-grid--course">
+              <Field label="Course name"><input value={courseDraft.name} onChange={(event) => setCourseDraft({ ...courseDraft, name: event.target.value })} /></Field>
+              <Field label="Status"><select value={courseDraft.status} onChange={(event) => setCourseDraft({ ...courseDraft, status: event.target.value as CourseStatus })}><option value="planned">Planned</option><option value="in_progress">In progress</option><option value="completed">Completed</option></select></Field>
+              <Field label="Term"><input value={courseDraft.term} onChange={(event) => setCourseDraft({ ...courseDraft, term: event.target.value })} /></Field>
+              <Field label="Grade"><input value={courseDraft.grade} onChange={(event) => setCourseDraft({ ...courseDraft, grade: event.target.value })} /></Field>
+            </div>
+            {courseError ? <p className="profile-editor__error">{courseError}</p> : null}
+            <button className="profile-save profile-edit-save" type="button" onClick={saveCourse}>Save course changes <span>→</span></button>
+          </section>
+        </div>
+      ) : null}
+
+      {editingActivityId ? (
+        <div className="profile-edit-overlay" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) { setEditingActivityId(null); setActivityDraft(emptyActivity); }
+        }}>
+          <section className="profile-edit-modal profile-edit-modal--activity" role="dialog" aria-modal="true" aria-labelledby="edit-activity-title">
+            <div className="profile-edit-modal__heading"><div><small>EDIT ACTIVITY</small><h2 id="edit-activity-title">{activityDraft.name}</h2></div><button type="button" aria-label="Close editor" onClick={() => { setEditingActivityId(null); setActivityDraft(emptyActivity); }}>×</button></div>
+            <div className="profile-field-grid">
+              <Field label="Category"><select value={activityDraft.category} onChange={(event) => setActivityDraft({ ...activityDraft, category: event.target.value as ActivityCategory })}>{Object.entries(categoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+              <Field label="Activity or organization"><input value={activityDraft.name} onChange={(event) => setActivityDraft({ ...activityDraft, name: event.target.value })} /></Field>
+              <Field label="Your role"><input value={activityDraft.role} onChange={(event) => setActivityDraft({ ...activityDraft, role: event.target.value })} /></Field>
+              <Field label="Status"><select value={activityDraft.status} onChange={(event) => setActivityDraft({ ...activityDraft, status: event.target.value as ActivityStatus })}><option value="planned">Planned</option><option value="active">Active</option><option value="completed">Completed</option></select></Field>
+              <Field label="Start date"><input type="month" value={activityDraft.startDate} onChange={(event) => setActivityDraft({ ...activityDraft, startDate: event.target.value })} /></Field>
+              <Field label="End date"><input type="month" value={activityDraft.endDate} onChange={(event) => setActivityDraft({ ...activityDraft, endDate: event.target.value })} /></Field>
+              <Field label="Total hours"><input type="number" min="0" value={activityDraft.hours} onChange={(event) => setActivityDraft({ ...activityDraft, hours: event.target.value })} /></Field>
+              <Field label="Description" wide><textarea rows={5} value={activityDraft.description} onChange={(event) => setActivityDraft({ ...activityDraft, description: event.target.value })} /></Field>
+            </div>
+            {activityError ? <p className="profile-editor__error">{activityError}</p> : null}
+            <button className="profile-save profile-edit-save" type="button" onClick={saveActivity}>Save activity changes <span>→</span></button>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }
