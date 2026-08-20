@@ -4,7 +4,7 @@ import mammoth from "mammoth";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const maxResumeBytes = 8 * 1024 * 1024;
 
@@ -110,13 +110,16 @@ export async function POST(request: Request) {
         ];
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const message = await anthropic.messages.parse({
-      model: "claude-sonnet-5",
-      max_tokens: 2600,
-      system: "You extract applicant resume data for Trajectory. Accuracy is more important than completeness. Never infer missing facts.",
-      messages: [{ role: "user", content }],
-      output_config: { format: jsonSchemaOutputFormat(resumeSchema) },
-    });
+    const message = await anthropic.messages.parse(
+      {
+        model: "claude-sonnet-5",
+        max_tokens: 2600,
+        system: "You extract applicant resume data for Trajectory. Accuracy is more important than completeness. Never infer missing facts.",
+        messages: [{ role: "user", content }],
+        output_config: { format: jsonSchemaOutputFormat(resumeSchema) },
+      },
+      { timeout: 52_000 }
+    );
 
     if (!message.parsed_output) {
       return NextResponse.json({ error: "Claude could not structure this resume." }, { status: 422 });
@@ -125,6 +128,12 @@ export async function POST(request: Request) {
     return NextResponse.json(message.parsed_output);
   } catch (error) {
     console.error("Resume extraction failed", error instanceof Error ? error.message : "Unknown error");
+    if (error instanceof Error && /timed?\s*out|timeout/i.test(error.message)) {
+      return NextResponse.json(
+        { error: "Claude took too long to read this résumé. Please try once more or upload a smaller file." },
+        { status: 504 }
+      );
+    }
     return NextResponse.json({ error: "We could not read this resume. Try another PDF or DOCX file." }, { status: 500 });
   }
 }
