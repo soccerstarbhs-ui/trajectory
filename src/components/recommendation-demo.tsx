@@ -18,6 +18,8 @@ const componentLabels: Record<string, string> = {
   feasibility: "Feasibility",
   time_utility: "Time utility",
   uncertainty: "Uncertainty penalty",
+  diminishing_returns: "Diminishing-returns penalty",
+  recovery_route: "Recovery-route priority",
 };
 
 export function RecommendationDemo({
@@ -96,7 +98,7 @@ export function RecommendationDemo({
             {Object.entries(top.breakdown).map(([key, value]) => (
               <div className="breakdown-row" key={key}>
                 <span>{componentLabels[key] ?? key}</span>
-                <strong>{key === "uncertainty" ? "−" : "+"}{value}</strong>
+                <strong>{key === "uncertainty" || key === "diminishing_returns" ? "−" : "+"}{value}</strong>
               </div>
             ))}
           </aside>
