@@ -112,11 +112,13 @@ export function ApplicantProfileForm() {
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeProfile, setResumeProfile] = useState<ResumeProfile | null>(null);
   const [resumeActivities, setResumeActivities] = useState<ResumeActivity[]>([]);
+  const [showAllResumeActivities, setShowAllResumeActivities] = useState(false);
   const [resumeNotes, setResumeNotes] = useState<string[]>([]);
   const [resumeError, setResumeError] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [transcriptFile, setTranscriptFile] = useState<File | null>(null);
   const [transcriptCourses, setTranscriptCourses] = useState<TranscriptCourse[]>([]);
+  const [showAllTranscriptCourses, setShowAllTranscriptCourses] = useState(false);
   const [showAllCourses, setShowAllCourses] = useState(false);
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [transcriptNotes, setTranscriptNotes] = useState<string[]>([]);
@@ -273,6 +275,7 @@ export function ApplicantProfileForm() {
       setResumeProfile(result.profile);
       setResumeActivities(result.activities.map((activity) => ({ ...activity, hours: "", selected: true })));
       setResumeNotes(result.notes);
+      setShowAllResumeActivities(false);
     } catch (error) {
       setResumeError(error instanceof Error ? error.message : "Resume scanning failed.");
     } finally {
@@ -312,6 +315,7 @@ export function ApplicantProfileForm() {
     setResumeActivities([]);
     setResumeNotes([]);
     setResumeFile(null);
+    setShowAllResumeActivities(false);
     setSaved(false);
   }
 
@@ -345,6 +349,7 @@ export function ApplicantProfileForm() {
       setTranscriptCourses(result.courses.map((course) => ({ ...course, selected: true })));
       setTranscriptNotes(result.notes);
       setTranscriptCatalog(result.catalog);
+      setShowAllTranscriptCourses(false);
     } catch (error) {
       setTranscriptError(error instanceof Error ? error.message : "Transcript scanning failed.");
     } finally {
@@ -372,6 +377,7 @@ export function ApplicantProfileForm() {
     setTranscriptNotes([]);
     setTranscriptCatalog(null);
     setTranscriptFile(null);
+    setShowAllTranscriptCourses(false);
     setSaved(false);
   }
 
@@ -442,7 +448,7 @@ export function ApplicantProfileForm() {
                 ) : null}
 
                 <div className="resume-review-list">
-                  {resumeActivities.map((activity, index) => (
+                  {resumeActivities.slice(0, showAllResumeActivities ? undefined : 4).map((activity, index) => (
                     <div className="resume-review-item resume-review-item--activity" key={`${activity.category}-${activity.name}-${index}`}>
                       <label>
                         <input type="checkbox" checked={activity.selected} onChange={(event) => setResumeActivities((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, selected: event.target.checked } : item))} />
@@ -452,6 +458,12 @@ export function ApplicantProfileForm() {
                     </div>
                   ))}
                 </div>
+
+                {resumeActivities.length > 4 ? (
+                  <button className="review-toggle" type="button" onClick={() => setShowAllResumeActivities((current) => !current)}>
+                    {showAllResumeActivities ? "Show less" : `Show all ${resumeActivities.length} activities`}
+                  </button>
+                ) : null}
 
                 {resumeNotes.length > 0 ? <p className="resume-review__notes">{resumeNotes.join(" ")}</p> : null}
                 <button className="resume-apply" type="button" onClick={applyResumeSuggestions}>Add selected items to profile <span>→</span></button>
@@ -500,7 +512,7 @@ export function ApplicantProfileForm() {
                   </p>
                 ) : null}
                 <div className="resume-review-list">
-                  {transcriptCourses.map((course, index) => (
+                  {transcriptCourses.slice(0, showAllTranscriptCourses ? undefined : 5).map((course, index) => (
                     <label className="resume-review-item transcript-course" key={`${course.courseCode}-${course.term}-${index}`}>
                       <input type="checkbox" checked={course.selected} onChange={(event) => setTranscriptCourses((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, selected: event.target.checked } : item))} />
                       <span>
@@ -511,6 +523,11 @@ export function ApplicantProfileForm() {
                     </label>
                   ))}
                 </div>
+                {transcriptCourses.length > 5 ? (
+                  <button className="review-toggle" type="button" onClick={() => setShowAllTranscriptCourses((current) => !current)}>
+                    {showAllTranscriptCourses ? "Show less" : `Show all ${transcriptCourses.length} courses`}
+                  </button>
+                ) : null}
                 {transcriptNotes.length > 0 ? <p className="resume-review__notes">{transcriptNotes.join(" ")}</p> : null}
                 <button className="resume-apply" type="button" onClick={applyTranscriptCourses}>Add selected courses as completed <span>→</span></button>
               </div>

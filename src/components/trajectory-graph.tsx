@@ -98,7 +98,7 @@ const stages: Array<{ id: Stage; title: string; detail: string; depth: number }>
 
 const statusColors: Record<PathStatus, string> = {
   completed: "#34d399",
-  active: "#a78bfa",
+  active: "#5eead4",
   recommended: "#fb7185",
   available: "#60a5fa",
   blocked: "#64748b",
@@ -116,14 +116,14 @@ const statusLabels: Record<PathStatus, string> = {
 
 const typeColors: Record<string, string> = {
   course: "#38bdf8",
-  research_lab: "#c084fc",
-  professor: "#f472b6",
+  research_lab: "#7dd3fc",
+  professor: "#6ee7b7",
   extracurricular: "#2dd4bf",
   internship: "#fb923c",
   scholarship: "#facc15",
   club: "#a3e635",
   goal: "#fbbf24",
-  current: "#a78bfa",
+  current: "#5eead4",
 };
 
 const typeLabels: Record<string, string> = {
@@ -349,7 +349,7 @@ function buildPathway(
       type: "smoothstep",
       animated: true,
       markerEnd: { type: MarkerType.ArrowClosed },
-      style: { stroke: "#a78bfa", strokeWidth: 2 },
+      style: { stroke: "#5eead4", strokeWidth: 2 },
     });
   }
 
@@ -551,10 +551,19 @@ export function TrajectoryGraph({
   }
 
   const goal = goals.find((item) => item.id === goalId);
+  const trajectoryNavigation = (
+    <nav className="trajectory-nav">
+      <Link href="/" className="orbit-brand" aria-label="Return to destinations">
+        <span className="orbit-brand__mark" aria-hidden="true"><i /></span>
+        TRAJECTORY
+      </Link>
+      <span>MEDICAL SCHOOL · PERSONALIZED TRAJECTORY</span>
+    </nav>
+  );
 
   if (view === "recommendation" && topAction) {
     return (
-      <section className="journey-detail" aria-labelledby="recommendation-title">
+      <>{trajectoryNavigation}<section className="journey-detail" aria-labelledby="recommendation-title">
         <div className="journey-progress" aria-label="Demo progress">
           <span data-complete="true">Onboarding</span>
           <span data-complete="true">Graph</span>
@@ -594,13 +603,13 @@ export function TrajectoryGraph({
             Review supporting evidence <span>→</span>
           </button>
         </div>
-      </section>
+      </section></>
     );
   }
 
   if (view === "evidence" && topAction) {
     return (
-      <section className="journey-detail" aria-labelledby="evidence-title">
+      <>{trajectoryNavigation}<section className="journey-detail" aria-labelledby="evidence-title">
         <div className="journey-progress" aria-label="Demo progress">
           <span data-complete="true">Onboarding</span>
           <span data-complete="true">Graph</span>
@@ -649,15 +658,16 @@ export function TrajectoryGraph({
             Mark action complete and recalculate <span>→</span>
           </button>
         </div>
-      </section>
+      </section></>
     );
   }
 
   return (
     <>
+      {trajectoryNavigation}
       <header className="trajectory-header">
         <div>
-          <p className="trajectory-kicker">TRAJECTORY</p>
+          <p className="trajectory-kicker">YOUR PERSONALIZED PATH</p>
           <h1>Your future, mapped.</h1>
           <p className="trajectory-subtitle">
             A focused path from where you are now to {goal?.name ?? "your goal"}.
