@@ -45,6 +45,23 @@ type ResumeResult = {
   notes: string[];
 };
 
+type TranscriptCourse = {
+  courseCode: string;
+  title: string;
+  term: string;
+  grade: string;
+  credits: string;
+  catalogMatched: boolean;
+  selected: boolean;
+};
+
+type TranscriptResult = {
+  courses: Array<Omit<TranscriptCourse, "selected">>;
+  notes: string[];
+  catalog: { matched: number; total: number; updated: string };
+  error?: string;
+};
+
 const storageKey = "trajectory-applicant-profile-v1";
 const emptyBasic: BasicProfile = { major: "", gpa: "", graduationDate: "", applicationCycle: "" };
 const emptyCourse: Omit<Course, "id"> = { name: "", status: "planned", term: "", grade: "" };
@@ -99,6 +116,12 @@ export function ApplicantProfileForm() {
   const [resumeNotes, setResumeNotes] = useState<string[]>([]);
   const [resumeError, setResumeError] = useState("");
   const [isScanning, setIsScanning] = useState(false);
+  const [transcriptFile, setTranscriptFile] = useState<File | null>(null);
+  const [transcriptCourses, setTranscriptCourses] = useState<TranscriptCourse[]>([]);
+  const [transcriptNotes, setTranscriptNotes] = useState<string[]>([]);
+  const [transcriptCatalog, setTranscriptCatalog] = useState<TranscriptResult["catalog"] | null>(null);
+  const [transcriptError, setTranscriptError] = useState("");
+  const [isScanningTranscript, setIsScanningTranscript] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -306,6 +329,66 @@ export function ApplicantProfileForm() {
     setSaved(false);
   }
 
+  async function scanTranscript() {
+    if (!transcriptFile) {
+      setTranscriptError("Choose a PDF transcript first.");
+      return;
+    }
+
+    setIsScanningTranscript(true);
+    setTranscriptError("");
+    const formData = new FormData();
+    formData.append("transcript", transcriptFile);
+
+    try {
+      const response = await fetch("/api/transcript/parse", { method: "POST", body: formData });
+      const responseText = await response.text();
+      let result: TranscriptResult;
+
+      try {
+        result = JSON.parse(responseText) as TranscriptResult;
+      } catch {
+        throw new Error(
+          response.status === 504
+            ? "Claude took too long to read this transcript. Please try once more or upload a smaller PDF."
+            : "The transcript service returned an unexpected response. Please try again."
+        );
+      }
+      if (!response.ok) throw new Error(result.error || "Transcript scanning failed.");
+
+      setTranscriptCourses(result.courses.map((course) => ({ ...course, selected: true })));
+      setTranscriptNotes(result.notes);
+      setTranscriptCatalog(result.catalog);
+    } catch (error) {
+      setTranscriptError(error instanceof Error ? error.message : "Transcript scanning failed.");
+    } finally {
+      setIsScanningTranscript(false);
+    }
+  }
+
+  function applyTranscriptCourses() {
+    setCourses((current) => {
+      const existing = new Set(current.map((course) => course.name.trim().toLowerCase()));
+      const additions = transcriptCourses
+        .filter((course) => course.selected)
+        .map((course) => ({
+          id: newId(),
+          name: [course.courseCode, course.title].filter(Boolean).join(" — "),
+          status: "completed" as const,
+          term: course.term,
+          grade: course.grade,
+        }))
+        .filter((course) => !existing.has(course.name.trim().toLowerCase()));
+      return [...current, ...additions];
+    });
+
+    setTranscriptCourses([]);
+    setTranscriptNotes([]);
+    setTranscriptCatalog(null);
+    setTranscriptFile(null);
+    setSaved(false);
+  }
+
   return (
     <main className="profile-page">
       <div className="profile-page__glow" aria-hidden="true" />
@@ -392,6 +475,64 @@ export function ApplicantProfileForm() {
 
                 {resumeNotes.length > 0 ? <p className="resume-review__notes">{resumeNotes.join(" ")}</p> : null}
                 <button className="resume-apply" type="button" onClick={applyResumeSuggestions}>Add selected items to profile <span>→</span></button>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="profile-section resume-import transcript-import">
+            <div className="resume-import__heading">
+              <div>
+                <span>ACADEMIC IMPORT · COLUMBIA CATALOG</span>
+                <h2>Add your transcript</h2>
+                <p>Upload a PDF transcript. Trajectory extracts completed courses and verifies Columbia course codes against its local catalog.</p>
+              </div>
+              <i aria-hidden="true">▤</i>
+            </div>
+            <div className="resume-dropzone">
+              <input
+                id="transcript-upload"
+                type="file"
+                accept=".pdf,application/pdf"
+                onChange={(event) => {
+                  setTranscriptFile(event.target.files?.[0] ?? null);
+                  setTranscriptError("");
+                }}
+              />
+              <label htmlFor="transcript-upload">
+                <strong>{transcriptFile?.name || "Choose your transcript"}</strong>
+                <span>{transcriptFile ? `${(transcriptFile.size / 1024 / 1024).toFixed(2)} MB · ready to scan` : "PDF · maximum 8 MB"}</span>
+              </label>
+              <button type="button" onClick={scanTranscript} disabled={isScanningTranscript}>
+                {isScanningTranscript ? "Reading transcript…" : "Import coursework"}
+              </button>
+            </div>
+            {transcriptError ? <p className="resume-import__error" role="alert">{transcriptError}</p> : null}
+
+            {transcriptCourses.length > 0 ? (
+              <div className="resume-review transcript-review">
+                <div className="resume-review__heading">
+                  <div><span>COMPLETED COURSEWORK</span><strong>Review transcript matches</strong></div>
+                  <small>{transcriptCourses.length} courses found</small>
+                </div>
+                {transcriptCatalog ? (
+                  <p className="transcript-catalog-status">
+                    <strong>{transcriptCatalog.matched}</strong> codes matched against {transcriptCatalog.total.toLocaleString()} recent Columbia courses · updated {transcriptCatalog.updated}
+                  </p>
+                ) : null}
+                <div className="resume-review-list">
+                  {transcriptCourses.map((course, index) => (
+                    <label className="resume-review-item transcript-course" key={`${course.courseCode}-${course.term}-${index}`}>
+                      <input type="checkbox" checked={course.selected} onChange={(event) => setTranscriptCourses((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, selected: event.target.checked } : item))} />
+                      <span>
+                        <small>{course.catalogMatched ? "Columbia catalog match" : "Transcript entry"}</small>
+                        <strong>{[course.courseCode, course.title].filter(Boolean).join(" — ")}</strong>
+                        <i>{[course.term, course.grade && `Grade ${course.grade}`, course.credits && `${course.credits} credits`].filter(Boolean).join(" · ")}</i>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {transcriptNotes.length > 0 ? <p className="resume-review__notes">{transcriptNotes.join(" ")}</p> : null}
+                <button className="resume-apply" type="button" onClick={applyTranscriptCourses}>Add selected courses as completed <span>→</span></button>
               </div>
             ) : null}
           </section>
