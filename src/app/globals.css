@@ -683,6 +683,27 @@ body {
 
 .resume-review__notes { color: #718095; font-size: 0.64rem; line-height: 1.5; }
 
+.review-toggle {
+  display: block;
+  margin: 0.7rem auto 0;
+  padding: 0.38rem 0.7rem;
+  border: 1px solid rgba(88, 221, 181, 0.2);
+  border-radius: 999px;
+  background: rgba(64, 191, 153, 0.06);
+  color: #9fe2ce;
+  font: inherit;
+  font-size: 0.62rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.review-toggle:hover,
+.review-toggle:focus-visible {
+  border-color: rgba(88, 221, 181, 0.5);
+  background: rgba(64, 191, 153, 0.12);
+  outline: none;
+}
+
 .resume-apply {
   display: flex;
   align-items: center;
