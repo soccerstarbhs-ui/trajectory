@@ -34,6 +34,17 @@ type Activity = {
   description: string;
 };
 
+type ResumeProfile = Pick<BasicProfile, "major" | "gpa" | "graduationDate">;
+type ResumeCourse = Omit<Course, "id"> & { selected: boolean };
+type ResumeActivity = Omit<Activity, "id"> & { selected: boolean };
+
+type ResumeResult = {
+  profile: ResumeProfile;
+  courses: Array<Omit<ResumeCourse, "selected">>;
+  activities: Array<Omit<ResumeActivity, "selected" | "hours">>;
+  notes: string[];
+};
+
 const storageKey = "trajectory-applicant-profile-v1";
 const emptyBasic: BasicProfile = { major: "", gpa: "", graduationDate: "", applicationCycle: "" };
 const emptyCourse: Omit<Course, "id"> = { name: "", status: "planned", term: "", grade: "" };
@@ -81,6 +92,13 @@ export function ApplicantProfileForm() {
   const [courseError, setCourseError] = useState("");
   const [activityError, setActivityError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [resumeProfile, setResumeProfile] = useState<ResumeProfile | null>(null);
+  const [resumeCourses, setResumeCourses] = useState<ResumeCourse[]>([]);
+  const [resumeActivities, setResumeActivities] = useState<ResumeActivity[]>([]);
+  const [resumeNotes, setResumeNotes] = useState<string[]>([]);
+  const [resumeError, setResumeError] = useState("");
+  const [isScanning, setIsScanning] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -200,6 +218,83 @@ export function ApplicantProfileForm() {
     setSaved(true);
   }
 
+  async function scanResume() {
+    if (!resumeFile) {
+      setResumeError("Choose a PDF or DOCX resume first.");
+      return;
+    }
+
+    setIsScanning(true);
+    setResumeError("");
+    const formData = new FormData();
+    formData.append("resume", resumeFile);
+
+    try {
+      const response = await fetch("/api/resume/parse", { method: "POST", body: formData });
+      const result = await response.json() as ResumeResult & { error?: string };
+      if (!response.ok) throw new Error(result.error || "Resume scanning failed.");
+
+      setResumeProfile(result.profile);
+      setResumeCourses(result.courses.map((course) => ({ ...course, selected: true })));
+      setResumeActivities(result.activities.map((activity) => ({ ...activity, hours: "", selected: true })));
+      setResumeNotes(result.notes);
+    } catch (error) {
+      setResumeError(error instanceof Error ? error.message : "Resume scanning failed.");
+    } finally {
+      setIsScanning(false);
+    }
+  }
+
+  function applyResumeSuggestions() {
+    if (resumeProfile) {
+      setBasic((current) => ({
+        ...current,
+        major: current.major || resumeProfile.major,
+        gpa: current.gpa || resumeProfile.gpa,
+        graduationDate: current.graduationDate || resumeProfile.graduationDate,
+      }));
+    }
+
+    setCourses((current) => {
+      const existing = new Set(current.map((course) => course.name.trim().toLowerCase()));
+      const additions = resumeCourses
+        .filter((course) => course.selected && !existing.has(course.name.trim().toLowerCase()))
+        .map((course) => ({
+          id: newId(),
+          name: course.name,
+          status: course.status,
+          term: course.term,
+          grade: course.grade,
+        }));
+      return [...current, ...additions];
+    });
+
+    setActivities((current) => {
+      const existing = new Set(current.map((activity) => `${activity.category}:${activity.name.trim().toLowerCase()}`));
+      const additions = resumeActivities
+        .filter((activity) => activity.selected && !existing.has(`${activity.category}:${activity.name.trim().toLowerCase()}`))
+        .map((activity) => ({
+          id: newId(),
+          category: activity.category,
+          name: activity.name,
+          role: activity.role,
+          status: activity.status,
+          startDate: activity.startDate,
+          endDate: activity.endDate,
+          hours: activity.hours,
+          description: activity.description,
+        }));
+      return [...current, ...additions];
+    });
+
+    setResumeProfile(null);
+    setResumeCourses([]);
+    setResumeActivities([]);
+    setResumeNotes([]);
+    setResumeFile(null);
+    setSaved(false);
+  }
+
   return (
     <main className="profile-page">
       <div className="profile-page__glow" aria-hidden="true" />
@@ -221,6 +316,75 @@ export function ApplicantProfileForm() {
 
       <form className="profile-layout" onSubmit={saveProfile}>
         <div className="profile-form-column">
+          <section className="profile-section resume-import">
+            <div className="resume-import__heading">
+              <div>
+                <span>QUICK START · CLAUDE-ASSISTED</span>
+                <h2>Start with your résumé</h2>
+                <p>Upload a PDF or DOCX. Review everything Claude finds, then add the missing hours yourself.</p>
+              </div>
+              <i aria-hidden="true">↥</i>
+            </div>
+            <div className="resume-dropzone">
+              <input
+                id="resume-upload"
+                type="file"
+                accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                onChange={(event) => {
+                  setResumeFile(event.target.files?.[0] ?? null);
+                  setResumeError("");
+                }}
+              />
+              <label htmlFor="resume-upload">
+                <strong>{resumeFile?.name || "Choose your résumé"}</strong>
+                <span>{resumeFile ? `${(resumeFile.size / 1024 / 1024).toFixed(2)} MB · ready to scan` : "PDF or DOCX · maximum 8 MB"}</span>
+              </label>
+              <button type="button" onClick={scanResume} disabled={isScanning}>
+                {isScanning ? "Reading résumé…" : "Scan and autofill"}
+              </button>
+            </div>
+            {resumeError ? <p className="resume-import__error" role="alert">{resumeError}</p> : null}
+
+            {resumeProfile || resumeCourses.length > 0 || resumeActivities.length > 0 ? (
+              <div className="resume-review">
+                <div className="resume-review__heading">
+                  <div><span>REVIEW REQUIRED</span><strong>Confirm Claude&apos;s suggestions</strong></div>
+                  <small>{resumeCourses.length + resumeActivities.length} items found</small>
+                </div>
+
+                {resumeProfile && (resumeProfile.major || resumeProfile.gpa || resumeProfile.graduationDate) ? (
+                  <div className="resume-profile-suggestions">
+                    <span>Academic details found</span>
+                    {resumeProfile.major ? <strong>{resumeProfile.major}</strong> : null}
+                    {resumeProfile.gpa ? <strong>GPA {resumeProfile.gpa}</strong> : null}
+                    {resumeProfile.graduationDate ? <strong>Graduation {resumeProfile.graduationDate}</strong> : null}
+                  </div>
+                ) : null}
+
+                <div className="resume-review-list">
+                  {resumeCourses.map((course, index) => (
+                    <label className="resume-review-item" key={`${course.name}-${index}`}>
+                      <input type="checkbox" checked={course.selected} onChange={(event) => setResumeCourses((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, selected: event.target.checked } : item))} />
+                      <span><small>Course · {statusLabels[course.status]}</small><strong>{course.name}</strong><i>{course.term || "Term not listed"}</i></span>
+                    </label>
+                  ))}
+                  {resumeActivities.map((activity, index) => (
+                    <div className="resume-review-item resume-review-item--activity" key={`${activity.category}-${activity.name}-${index}`}>
+                      <label>
+                        <input type="checkbox" checked={activity.selected} onChange={(event) => setResumeActivities((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, selected: event.target.checked } : item))} />
+                        <span><small>{categoryLabels[activity.category]} · {statusLabels[activity.status]}</small><strong>{activity.name}</strong><i>{activity.role}</i></span>
+                      </label>
+                      <label className="resume-hours"><span>Total hours</span><input type="number" min="0" placeholder="Add hours" value={activity.hours} onChange={(event) => setResumeActivities((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, hours: event.target.value } : item))} /></label>
+                    </div>
+                  ))}
+                </div>
+
+                {resumeNotes.length > 0 ? <p className="resume-review__notes">{resumeNotes.join(" ")}</p> : null}
+                <button className="resume-apply" type="button" onClick={applyResumeSuggestions}>Add selected items to profile <span>→</span></button>
+              </div>
+            ) : null}
+          </section>
+
           <section className="profile-section">
             <SectionHeading number="01" title="Academic foundation" detail="The timeline and academic context for your path." />
             <div className="profile-field-grid">
