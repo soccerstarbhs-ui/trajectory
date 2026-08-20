@@ -57,6 +57,12 @@ function pointOnOrbit(angle: number) {
   };
 }
 
+function initialTrail(angle: number) {
+  return Array.from({ length: 23 }, (_, index) =>
+    pointOnOrbit(angle - (22 - index) * 0.013)
+  );
+}
+
 function pointOnBezier(start: Point, first: Point, second: Point, end: Point, progress: number) {
   const inverse = 1 - progress;
   return {
@@ -72,7 +78,7 @@ export function OrbitLanding() {
   const [hoveredId, setHoveredId] = useState<DestinationId | null>(null);
   const [motion, setMotion] = useState<MotionFrame>(() => ({
     ball: pointOnOrbit(Math.PI / 2),
-    trail: [],
+    trail: initialTrail(Math.PI / 2),
   }));
   const phaseRef = useRef<MotionPhase>("orbiting");
   const selectedRef = useRef<DestinationId | null>(null);
@@ -144,6 +150,7 @@ export function OrbitLanding() {
   const tetherVisible = phase !== "launching";
   const highlightedId = selectedId ?? hoveredId;
   const ball = motion.ball;
+  const trailScale = phase === "orbiting" ? 1 : phase === "approaching" ? 1.28 : 1.42;
 
   return (
     <main className="orbit-page">
@@ -198,13 +205,13 @@ export function OrbitLanding() {
             <circle className="orbit-anchor-core" cx={CENTER.x} cy={CENTER.y} r="4" />
             <g className="orbit-trail" aria-hidden="true">
               {motion.trail.map((point, index) => (
-                <circle key={index} cx={point.x} cy={point.y} r={3.5 + index * 0.12} opacity={(index + 1) / (motion.trail.length + 1) * 0.5} />
+                <circle key={index} cx={point.x} cy={point.y} r={(3.5 + index * 0.12) * trailScale} opacity={0.08 + (index + 1) / (motion.trail.length + 1) * 0.48} />
               ))}
             </g>
             <circle className="orbit-ball" cx={ball.x} cy={ball.y} r="17" fill="url(#ball-fill)" filter="url(#ball-glow)" />
 
             {Object.values(destinations).map((destination) => (
-              <foreignObject key={destination.id} x="620" y={destination.buttonY} width="170" height="76">
+              <foreignObject className="destination-control" key={destination.id} x="612" y={destination.buttonY - 8} width="186" height="92">
                 <button
                   className={`destination-button${highlightedId === destination.id ? " is-active" : ""}`}
                   type="button"
