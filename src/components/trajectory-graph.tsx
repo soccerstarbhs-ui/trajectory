@@ -143,6 +143,8 @@ const impactLabels: Record<string, string> = {
   feasibility: "Feasible from your current state",
   time_utility: "Useful at this point in your timeline",
   uncertainty: "Uncertainty penalty",
+  diminishing_returns: "Diminishing-returns penalty",
+  recovery_route: "Recovery-route priority",
 };
 
 const priorityByStage: Record<Stage, string[]> = {
@@ -395,6 +397,9 @@ export function TrajectoryGraph({
               ...(rerouteScenario === "rejection" && rejectedNodeName ? [rejectedNodeName] : []),
             ],
       urgency: rerouteScenario === "opportunity" ? "deadline" as const : baseProfile.urgency,
+      actionOutcomes: rerouteScenario === "rejection" && rejectedNodeName
+        ? { ...baseProfile.actionOutcomes, [rejectedNodeName]: "rejected" as const }
+        : baseProfile.actionOutcomes,
       priorityNodeName: organicChemistryWhatIf
         ? "CHEM UN2443 Organic Chemistry I"
         : undefined,
@@ -614,7 +619,7 @@ export function TrajectoryGraph({
             {Object.entries(topAction.breakdown).map(([key, points]) => (
               <div key={key}>
                 <span>{impactLabels[key] ?? key}</span>
-                <strong>{key === "uncertainty" ? "−" : "+"}{points}</strong>
+                <strong>{key === "uncertainty" || key === "diminishing_returns" ? "−" : "+"}{points}</strong>
               </div>
             ))}
           </div>
