@@ -38,6 +38,343 @@ body {
   color: #f8fafc;
 }
 
+/* Checkpoint 1: destination-first landing page */
+.orbit-page {
+  position: relative;
+  min-height: 100svh;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 74% 62%, rgba(16, 185, 129, 0.12), transparent 27rem),
+    radial-gradient(circle at 18% 105%, rgba(19, 111, 92, 0.22), transparent 31rem),
+    linear-gradient(145deg, #06101a 0%, #08111b 48%, #050b12 100%);
+  color: #f8fafc;
+}
+
+.orbit-page::after {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 88px 100%;
+  mask-image: linear-gradient(to bottom, transparent, black 35%, transparent);
+  content: "";
+}
+
+.orbit-page__stars {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.52;
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.72) 0 1px, transparent 1.4px),
+    radial-gradient(circle, rgba(153, 246, 228, 0.44) 0 1px, transparent 1.5px);
+  background-position: 0 0, 31px 57px;
+  background-size: 137px 137px, 191px 191px;
+  mask-image: linear-gradient(to bottom, black, transparent 88%);
+}
+
+.orbit-nav {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: min(1400px, calc(100% - 6rem));
+  margin: 0 auto;
+  padding: 2.3rem 0 1rem;
+}
+
+.orbit-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #f8fafc;
+  font-size: 0.82rem;
+  font-weight: 760;
+  letter-spacing: 0.14em;
+  text-decoration: none;
+}
+
+.orbit-brand__mark {
+  position: relative;
+  display: block;
+  width: 22px;
+  height: 22px;
+  transform: rotate(45deg);
+  border: 1.4px solid #d7fff4;
+  border-radius: 50% 45% 50% 45%;
+}
+
+.orbit-brand__mark::before,
+.orbit-brand__mark::after,
+.orbit-brand__mark i {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  content: "";
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: #d7fff4;
+}
+
+.orbit-brand__mark::before { width: 30px; height: 1px; }
+.orbit-brand__mark::after { width: 1px; height: 30px; }
+.orbit-brand__mark i { width: 5px; height: 5px; }
+
+.orbit-nav__tag {
+  color: rgba(203, 213, 225, 0.52);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.23em;
+}
+
+.orbit-hero {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.78fr) minmax(620px, 1.22fr);
+  align-items: center;
+  width: min(1400px, calc(100% - 6rem));
+  min-height: calc(100svh - 98px);
+  margin: 0 auto;
+  padding-bottom: 3rem;
+}
+
+.orbit-copy {
+  position: relative;
+  z-index: 2;
+  max-width: 555px;
+  padding-bottom: 2rem;
+}
+
+.orbit-eyebrow {
+  margin: 0 0 1.6rem;
+  color: #65d9b7;
+  font-size: 0.67rem;
+  font-weight: 760;
+  letter-spacing: 0.25em;
+}
+
+.orbit-copy h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(4.4rem, 7vw, 8rem);
+  font-weight: 400;
+  letter-spacing: -0.065em;
+  line-height: 0.82;
+}
+
+.orbit-copy h1 span {
+  display: block;
+  margin-top: 0.18em;
+  color: #42d6a9;
+  font-style: italic;
+}
+
+.orbit-copy__body {
+  max-width: 410px;
+  margin: 2.25rem 0 0;
+  color: #aab6c5;
+  font-size: 1.05rem;
+  line-height: 1.72;
+}
+
+.orbit-copy__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 2.4rem;
+  color: rgba(203, 213, 225, 0.54);
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+}
+
+.orbit-copy__hint span {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border: 1px solid rgba(100, 217, 184, 0.38);
+  border-radius: 50%;
+  color: #64d9b8;
+}
+
+.orbit-visual { position: relative; min-width: 0; }
+
+.orbit-visual svg {
+  display: block;
+  width: 100%;
+  max-height: min(72svh, 680px);
+  overflow: visible;
+}
+
+.orbit-visual__glow {
+  position: absolute;
+  top: 49%;
+  left: 40%;
+  width: 430px;
+  height: 430px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(23, 150, 118, 0.09);
+  filter: blur(70px);
+}
+
+.orbit-ring,
+.destination-path {
+  fill: none;
+  stroke: rgba(166, 183, 190, 0.56);
+  stroke-dasharray: 8 10;
+  stroke-linecap: round;
+  stroke-width: 1.7;
+}
+
+.destination-path { transition: stroke 220ms ease, filter 220ms ease, opacity 220ms ease; }
+.destination-path--law,
+.destination-path--dental { opacity: 0.58; }
+
+.destination-path--medical.is-active {
+  stroke: #61e8be;
+  opacity: 1;
+  filter: drop-shadow(0 0 8px rgba(80, 225, 182, 0.6));
+}
+
+.branch-point,
+.destination-dot {
+  fill: #08131b;
+  stroke: rgba(184, 201, 207, 0.65);
+  stroke-width: 1.6;
+}
+
+.destination-dot--medical { stroke: #64e5bf; }
+.orbit-tether { stroke: rgba(224, 234, 236, 0.72); stroke-width: 1.5; }
+
+.orbit-anchor {
+  fill: #b9c1c4;
+  stroke: #f4f7f7;
+  stroke-width: 1.5;
+  filter: drop-shadow(0 0 7px rgba(255, 255, 255, 0.48));
+}
+
+.orbit-anchor-core { fill: #fff; }
+.orbit-ball { stroke: rgba(214, 255, 245, 0.9); stroke-width: 1.1; }
+
+.destination-label rect {
+  fill: rgba(22, 30, 39, 0.88);
+  stroke: rgba(148, 163, 184, 0.32);
+  stroke-width: 1;
+}
+
+.destination-label text {
+  fill: #e8eef2;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 16px;
+}
+
+.destination-label--inactive { opacity: 0.7; }
+
+.medical-hit-target {
+  position: absolute;
+  top: 41.5%;
+  right: 0;
+  display: flex;
+  width: 145px;
+  min-height: 62px;
+  flex-direction: column;
+  justify-content: center;
+  transform: translateY(-50%);
+  border: 1px solid rgba(125, 237, 205, 0.5);
+  border-radius: 14px;
+  background: rgba(17, 40, 35, 0.88);
+  box-shadow: 0 0 25px rgba(50, 201, 159, 0.13);
+  color: #f2fffb;
+  font: inherit;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.medical-hit-target:hover:not(:disabled),
+.medical-hit-target:focus-visible {
+  transform: translateY(-50%) scale(1.035);
+  border-color: #8df6d8;
+  box-shadow: 0 0 34px rgba(68, 222, 179, 0.3);
+  outline: none;
+}
+
+.medical-hit-target:disabled { cursor: wait; }
+.medical-hit-target span { font-size: 0.88rem; font-weight: 760; }
+.medical-hit-target small { margin-top: 0.25rem; color: #69d9ba; font-size: 0.59rem; }
+
+.orbit-coming-soon {
+  position: absolute;
+  right: 1.2rem;
+  bottom: 1rem;
+  margin: 0;
+  color: rgba(148, 163, 184, 0.45);
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+}
+
+.profile-arrival {
+  position: relative;
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+  overflow: hidden;
+  padding: 2rem;
+  background: #071019;
+  color: #f8fafc;
+}
+
+.profile-arrival__glow {
+  position: absolute;
+  width: 480px;
+  height: 480px;
+  border-radius: 50%;
+  background: rgba(36, 207, 158, 0.12);
+  filter: blur(100px);
+}
+
+.profile-arrival section { position: relative; max-width: 720px; text-align: center; }
+.profile-arrival p { color: #57ddb5; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.24em; }
+
+.profile-arrival h1 {
+  margin: 1.2rem 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(3rem, 8vw, 6.5rem);
+  font-weight: 400;
+  letter-spacing: -0.06em;
+  line-height: 0.94;
+}
+
+.profile-arrival span { display: block; color: #9eacbb; }
+.profile-arrival a { display: inline-block; margin-top: 2.5rem; color: #78e8c8; font-size: 0.8rem; text-decoration: none; }
+
+@media (max-width: 1050px) {
+  .orbit-nav,
+  .orbit-hero { width: min(100% - 2.5rem, 820px); }
+  .orbit-hero { grid-template-columns: 1fr; padding-top: 4rem; }
+  .orbit-copy { max-width: 650px; padding-bottom: 0; }
+  .orbit-visual { margin-top: -1.5rem; }
+  .orbit-visual svg { max-height: 620px; }
+}
+
+@media (max-width: 640px) {
+  .orbit-nav { padding-top: 1.5rem; }
+  .orbit-nav__tag { display: none; }
+  .orbit-hero { width: calc(100% - 1.5rem); padding-top: 3.5rem; }
+  .orbit-copy { padding-inline: 0.5rem; }
+  .orbit-copy h1 { font-size: clamp(3.8rem, 18vw, 5.7rem); }
+  .orbit-copy__body { font-size: 0.95rem; }
+  .orbit-visual { width: 132%; margin: -2rem -16% 0; }
+  .medical-hit-target { right: 3%; width: 128px; }
+  .orbit-coming-soon { right: 8%; bottom: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .destination-path,
+  .medical-hit-target { transition: none; }
+}
+
 .trajectory-shell {
   min-height: 100vh;
   padding: clamp(1.5rem, 4vw, 3.75rem);
