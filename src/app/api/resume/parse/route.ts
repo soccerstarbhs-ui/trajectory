@@ -112,8 +112,8 @@ export async function POST(request: Request) {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const message = await anthropic.messages.parse(
       {
-        model: "claude-sonnet-5",
-        max_tokens: 2600,
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 5000,
         system: "You extract applicant resume data for Trajectory. Accuracy is more important than completeness. Never infer missing facts.",
         messages: [{ role: "user", content }],
         output_config: { format: jsonSchemaOutputFormat(resumeSchema) },
@@ -121,11 +121,26 @@ export async function POST(request: Request) {
       { timeout: 52_000 }
     );
 
-    if (!message.parsed_output) {
-      return NextResponse.json({ error: "Claude could not structure this resume." }, { status: 422 });
+    if (message.parsed_output) return NextResponse.json(message.parsed_output);
+
+    const textBlock = message.content.find((block) => block.type === "text");
+    if (textBlock?.type === "text") {
+      try {
+        return NextResponse.json(JSON.parse(textBlock.text));
+      } catch {
+        // Fall through to the more useful completion error below.
+      }
     }
 
-    return NextResponse.json(message.parsed_output);
+    console.error("Resume extraction returned no structured output", message.stop_reason);
+    return NextResponse.json(
+      {
+        error: message.stop_reason === "max_tokens"
+          ? "This résumé contains more detail than Claude could process in one scan. Try a shorter version."
+          : "Claude could not structure this résumé. Please try the scan once more.",
+      },
+      { status: 422 }
+    );
   } catch (error) {
     console.error("Resume extraction failed", error instanceof Error ? error.message : "Unknown error");
     if (error instanceof Error && /timed?\s*out|timeout/i.test(error.message)) {
