@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "tsx supabase/seed/seed.ts"
+    "seed": "tsx supabase/seed/seed.ts",
+    "sync:columbia-courses": "node scripts/sync-columbia-course-catalog.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
