@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "node --import tsx --test src/lib/recommendation-engine.test.ts",
     "seed": "tsx supabase/seed/seed.ts",
     "sync:columbia-courses": "node scripts/sync-columbia-course-catalog.mjs"
   },

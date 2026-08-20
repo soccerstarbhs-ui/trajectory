@@ -11,7 +11,7 @@ const maxResumeBytes = 8 * 1024 * 1024;
 const resumeSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["profile", "courses", "activities", "notes"],
+  required: ["profile", "activities", "notes"],
   properties: {
     profile: {
       type: "object",
@@ -21,20 +21,6 @@ const resumeSchema = {
         major: { type: "string" },
         gpa: { type: "string" },
         graduationDate: { type: "string", description: "YYYY-MM when explicit, otherwise empty" },
-      },
-    },
-    courses: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["name", "status", "term", "grade"],
-        properties: {
-          name: { type: "string" },
-          status: { type: "string", enum: ["planned", "in_progress", "completed"] },
-          term: { type: "string" },
-          grade: { type: "string" },
-        },
       },
     },
     activities: {
@@ -61,6 +47,7 @@ const resumeSchema = {
 const extractionPrompt = `Extract only information explicitly supported by this applicant resume.
 Classify experiences as extracurricular, clinical, volunteering, leadership, research, or other.
 Do not invent dates, GPA, grades, duties, application timing, or hours.
+Do not extract or return coursework. Coursework is imported separately from the student's transcript.
 Leave unknown strings empty. Do not return total hours even if the resume contains them; the student will verify and enter hours manually.
 Treat substantial projects performed within a research lab as one research experience rather than multiple separate lab commitments.
 Return concise, editable descriptions and include a note for anything genuinely ambiguous.`;
