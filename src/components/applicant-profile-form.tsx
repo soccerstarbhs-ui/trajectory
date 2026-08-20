@@ -231,7 +231,18 @@ export function ApplicantProfileForm() {
 
     try {
       const response = await fetch("/api/resume/parse", { method: "POST", body: formData });
-      const result = await response.json() as ResumeResult & { error?: string };
+      const responseText = await response.text();
+      let result: ResumeResult & { error?: string };
+
+      try {
+        result = JSON.parse(responseText) as ResumeResult & { error?: string };
+      } catch {
+        throw new Error(
+          response.status === 504
+            ? "Claude took too long to read this résumé. Please try once more or upload a smaller file."
+            : "The résumé service returned an unexpected response. Please try again."
+        );
+      }
       if (!response.ok) throw new Error(result.error || "Resume scanning failed.");
 
       setResumeProfile(result.profile);
