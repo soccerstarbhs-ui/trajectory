@@ -704,6 +704,45 @@ body {
   outline: none;
 }
 
+.approved-list-toggle { margin-bottom: 1rem; }
+
+.profile-edit-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(2, 8, 13, 0.78);
+  backdrop-filter: blur(10px);
+}
+
+.profile-edit-modal {
+  width: min(620px, 100%);
+  max-height: min(820px, calc(100vh - 2rem));
+  overflow-y: auto;
+  padding: clamp(1.25rem, 4vw, 2rem);
+  border: 1px solid rgba(88, 221, 181, 0.25);
+  border-radius: 1.25rem;
+  background: #09141e;
+  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.55), 0 0 45px rgba(77, 219, 174, 0.08);
+}
+
+.profile-edit-modal--activity { width: min(760px, 100%); }
+
+.profile-edit-modal__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.profile-edit-modal__heading small { color: #58ddb5; font-size: 0.6rem; font-weight: 800; letter-spacing: 0.12em; }
+.profile-edit-modal__heading h2 { margin: 0.3rem 0 0; color: #f0f8f5; font-size: 1.1rem; }
+.profile-edit-modal__heading button { border: 0; background: transparent; color: #8ca0b4; font-size: 1.6rem; cursor: pointer; }
+.profile-edit-save { width: 100%; margin-top: 1.2rem; }
+
 .resume-apply {
   display: flex;
   align-items: center;
@@ -1470,7 +1509,7 @@ body {
   opacity: 0.68;
 }
 
-.trajectory-node[data-status="gap"] {
+.trajectory-node[data-status="recommended"] {
   box-shadow:
     0 18px 44px rgba(0, 0, 0, 0.32),
     0 0 34px rgba(251, 113, 133, 0.16),
