@@ -666,6 +666,20 @@ export function ApplicantProfileForm() {
               <Field label="Activity or organization"><input value={activityDraft.name} onChange={(event) => setActivityDraft({ ...activityDraft, name: event.target.value })} /></Field>
               <Field label="Your role"><input value={activityDraft.role} onChange={(event) => setActivityDraft({ ...activityDraft, role: event.target.value })} /></Field>
               <Field label="Status"><select value={activityDraft.status} onChange={(event) => setActivityDraft({ ...activityDraft, status: event.target.value as ActivityStatus })}><option value="planned">Planned</option><option value="active">Active</option><option value="completed">Completed</option></select></Field>
+              <label className="activity-current-toggle profile-field--wide">
+                <input
+                  type="checkbox"
+                  checked={activityDraft.status === "active"}
+                  onChange={(event) => setActivityDraft({
+                    ...activityDraft,
+                    status: event.target.checked ? "active" : activityDraft.status === "active" ? "completed" : activityDraft.status,
+                  })}
+                />
+                <span>
+                  <strong>I&apos;m currently involved in this activity</strong>
+                  <small>Select this if you still work, volunteer, conduct research, or participate here.</small>
+                </span>
+              </label>
               <Field label="Start date"><input type="month" value={activityDraft.startDate} onChange={(event) => setActivityDraft({ ...activityDraft, startDate: event.target.value })} /></Field>
               <Field label="End date"><input type="month" value={activityDraft.endDate} onChange={(event) => setActivityDraft({ ...activityDraft, endDate: event.target.value })} /></Field>
               <Field label="Total hours"><input type="number" min="0" value={activityDraft.hours} onChange={(event) => setActivityDraft({ ...activityDraft, hours: event.target.value })} /></Field>

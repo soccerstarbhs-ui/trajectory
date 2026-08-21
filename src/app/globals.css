@@ -743,6 +743,30 @@ body {
 .profile-edit-modal__heading button { border: 0; background: transparent; color: #8ca0b4; font-size: 1.6rem; cursor: pointer; }
 .profile-edit-save { width: 100%; margin-top: 1.2rem; }
 
+.activity-current-toggle {
+  display: flex !important;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid rgba(88, 221, 181, 0.2);
+  border-radius: 0.8rem;
+  background: rgba(64, 191, 153, 0.06);
+  cursor: pointer;
+}
+
+.activity-current-toggle > input {
+  width: 1.05rem !important;
+  height: 1.05rem !important;
+  flex: 0 0 auto;
+  accent-color: #50dcb2;
+}
+
+.activity-current-toggle > span { margin: 0 !important; }
+.activity-current-toggle strong,
+.activity-current-toggle small { display: block; }
+.activity-current-toggle strong { color: #dff8f0; font-size: 0.74rem; }
+.activity-current-toggle small { margin-top: 0.25rem; color: #728497; font-size: 0.62rem; line-height: 1.45; }
+
 .resume-apply {
   display: flex;
   align-items: center;
