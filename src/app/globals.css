@@ -2194,7 +2194,7 @@ body {
   border-color: rgba(84, 220, 178, 0.25);
 }
 .guided-impact__icon { display: grid; width: 48px; height: 48px; margin-top: 1.2rem; place-items: center; border: 1px solid rgba(98, 230, 184, 0.5); border-radius: 50%; background: rgba(52, 196, 151, 0.13); box-shadow: 0 0 24px rgba(82, 220, 176, 0.16); color: #80e7c6; }
-.guided-impact h2 { margin: 1rem 0 0; font-family: Georgia, "Times New Roman", serif; font-size: 1.55rem; font-weight: 400; letter-spacing: -0.035em; line-height: 1.03; }
+.guided-impact h2 { margin: 1rem 0 0; overflow-wrap: anywhere; font-family: Georgia, "Times New Roman", serif; font-size: 1.55rem; font-weight: 400; letter-spacing: -0.035em; line-height: 1.08; }
 .guided-impact__metrics { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 1rem; }
 .guided-impact__metrics span { padding: 0.42rem 0.5rem; border: 1px solid rgba(148, 163, 184, 0.14); border-radius: 0.55rem; color: #8edfc6; font-size: 0.55rem; }
 .guided-impact h3 { margin: 1.15rem 0 0; padding-top: 1rem; border-top: 1px solid rgba(148, 163, 184, 0.1); color: #55dcb3; font-size: 0.56rem; letter-spacing: 0.1em; text-transform: uppercase; }
@@ -2243,6 +2243,7 @@ body {
 }
 
 .guided-workspace {
+  --guided-flow-offset-y: 32px;
   position: relative;
   display: block;
   min-height: 830px;
@@ -2280,8 +2281,19 @@ body {
 .guided-impact {
   top: 410px;
   right: 18px;
+  box-sizing: border-box;
   width: 282px;
+  max-height: calc(100% - 428px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(92, 224, 181, 0.45) rgba(12, 31, 42, 0.5);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
 }
+
+.guided-impact::-webkit-scrollbar { width: 7px; }
+.guided-impact::-webkit-scrollbar-track { border-radius: 999px; background: rgba(12, 31, 42, 0.5); }
+.guided-impact::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(92, 224, 181, 0.45); }
 
 .guided-canvas-shell {
   position: absolute;
@@ -2297,6 +2309,7 @@ body {
 
 .guided-canvas { height: 100%; min-height: 830px; }
 .guided-canvas .react-flow { background: transparent; }
+.guided-canvas .react-flow__viewport { translate: 0 var(--guided-flow-offset-y); }
 .guided-canvas .react-flow__edge-path { stroke-linecap: round; }
 .guided-canvas .guided-spine-edge .react-flow__edge-path {
   filter: drop-shadow(0 0 4px rgba(86, 230, 183, 0.75)) drop-shadow(0 0 12px rgba(55, 209, 161, 0.3));
@@ -2410,6 +2423,7 @@ body {
   inset: 0;
   z-index: 10;
   pointer-events: none;
+  transform: translateY(var(--guided-flow-offset-y));
 }
 
 .guided-flight-svg {
@@ -2535,6 +2549,7 @@ body {
   width: 260px;
   height: 230px;
   pointer-events: none;
+  transform: translateY(var(--guided-flow-offset-y));
 }
 .guided-celebration i {
   --confetti-angle: calc(var(--confetti-index) * 22.5deg);
@@ -2685,6 +2700,11 @@ body {
     inset: auto;
     width: auto;
   }
+  .guided-impact {
+    max-height: none;
+    overflow: visible;
+    scrollbar-gutter: auto;
+  }
   .guided-canvas-shell {
     order: 1;
     height: 620px;
@@ -2692,6 +2712,7 @@ body {
     background: rgba(7, 18, 27, 0.36);
   }
   .guided-canvas { min-height: 620px; }
+  .guided-canvas .react-flow__viewport { translate: none; }
   .guided-readiness { order: 2; }
   .guided-impact { order: 3; display: block; }
   .guided-impact__icon { margin-top: 1.2rem; }
@@ -2704,6 +2725,7 @@ body {
   .guided-legend em { display: none; }
   .guided-canvas .react-flow__controls { right: 0.7rem; bottom: 4.2rem; }
   .guided-node-panel { right: 0.7rem; }
+  .guided-flight-path { transform: none; }
   .guided-celebration { top: 0; right: 0; transform: scale(0.8); transform-origin: top right; }
 }
 
@@ -3656,12 +3678,15 @@ body {
 .evidence-panel > h1 {
   max-width: 850px;
   margin: 0;
+  overflow-wrap: anywhere;
   font-family: Georgia, "Times New Roman", serif;
   font-weight: 400;
   font-size: clamp(2.4rem, 6vw, 5.5rem);
-  line-height: 0.95;
+  line-height: 1.02;
   letter-spacing: -0.06em;
 }
+
+.journey-action-card__heading + p { margin-top: 1.35rem; }
 
 .journey-action-card__heading > strong {
   display: grid;
