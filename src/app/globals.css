@@ -2243,7 +2243,7 @@ body {
 }
 
 .guided-workspace {
-  --guided-flow-offset-y: 32px;
+  --guided-flow-offset-y: 88px;
   position: relative;
   display: block;
   min-height: 830px;
