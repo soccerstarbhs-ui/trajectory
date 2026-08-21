@@ -2431,9 +2431,9 @@ body {
 
 .guided-celebration {
   position: absolute;
-  top: calc(12.7% - 115px);
+  top: calc(25.3% - 115px);
   right: auto;
-  left: calc(86.4% - 130px);
+  left: calc(80.9% - 130px);
   z-index: 14;
   width: 260px;
   height: 230px;
@@ -2555,6 +2555,19 @@ body {
 .guided-milestone-summary article small { display: block; }
 .guided-milestone-summary article strong { color: #cfddd9; font-size: 0.58rem; line-height: 1.3; }
 .guided-milestone-summary article small { margin-top: 0.2rem; color: #708292; font-size: 0.5rem; line-height: 1.35; }
+.guided-milestone-summary__toggle {
+  width: 100%;
+  padding: 0.55rem;
+  border: 1px dashed rgba(84, 220, 178, 0.28);
+  border-radius: 0.65rem;
+  background: rgba(49, 181, 140, 0.06);
+  color: #80d9bf;
+  font: inherit;
+  font-size: 0.54rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+.guided-milestone-summary__toggle:hover { border-color: rgba(84, 220, 178, 0.52); background: rgba(49, 181, 140, 0.11); }
 
 @media (max-width: 900px) {
   .guided-header,

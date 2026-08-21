@@ -278,30 +278,44 @@ function FlightRocket() {
     <svg className="guided-flight-svg" viewBox="0 0 1600 830" preserveAspectRatio="none" aria-hidden="true">
       <g>
         <animateMotion
-          dur="4.2s"
-          path="M 130 720 C 260 510 390 400 560 400 C 735 400 900 425 1000 335 C 1070 270 1015 180 960 190 C 890 204 885 310 970 325 C 1085 345 1160 205 1130 112 C 1112 58 1155 28 1225 35 C 1225 35 1225 35 1225 35 C 1280 42 1330 70 1382 105"
-          keyPoints="0;0.87;0.87;1"
-          keyTimes="0;0.76;0.88;1"
-          calcMode="linear"
+          dur="3.55s"
+          path="M 130 720 C 260 510 390 400 560 400 C 735 400 900 425 1000 335 C 1070 270 1015 180 960 190 C 890 204 885 310 970 325 C 1085 345 1160 205 1130 112 C 1110 52 1165 24 1235 40 C 1270 48 1290 55 1294 60"
+          keyPoints="0;1"
+          keyTimes="0;1"
+          keySplines=".2 .62 .22 1"
+          calcMode="spline"
           rotate="0"
           fill="freeze"
         />
-        <g className="guided-flight-heading">
+        <g>
           <animateTransform
             attributeName="transform"
-            type="rotate"
-            dur="4.2s"
-            values="38;70;92;18;-80;-190;-300;0;0;0"
-            keyTimes="0;.12;.28;.43;.53;.62;.71;.76;.88;1"
-            calcMode="linear"
+            type="translate"
+            begin="3.85s"
+            dur="0.9s"
+            from="0 0"
+            to="0 38"
+            keySplines=".42 0 .58 1"
+            calcMode="spline"
             fill="freeze"
           />
-          <g transform="translate(-36 -54)">
-            <path className="guided-rocket__body" d="M36 5C51 18 57 36 54 62L43 76H29L18 62C15 36 21 18 36 5Z" />
-            <path className="guided-rocket__window" d="M36 24a9 9 0 1 1 0 18 9 9 0 0 1 0-18Z" />
-            <path className="guided-rocket__fin" d="M19 51 7 72l21-8m25-13 12 21-21-8" />
-            <path className="guided-rocket__line" d="M29 76h14" />
-            <path className="guided-flight-flame" d="M29 77 Q36 112 43 77 Q36 89 29 77Z" />
+          <g className="guided-flight-heading">
+            <animateTransform
+              attributeName="transform"
+              type="rotate"
+              dur="3.55s"
+              values="38;70;92;45;-40;-130;-220;-300;-338;-360"
+              keyTimes="0;.12;.28;.43;.53;.62;.71;.79;.9;1"
+              calcMode="linear"
+              fill="freeze"
+            />
+            <g transform="translate(-36 -54)">
+              <path className="guided-rocket__body" d="M36 5C51 18 57 36 54 62L43 76H29L18 62C15 36 21 18 36 5Z" />
+              <path className="guided-rocket__window" d="M36 24a9 9 0 1 1 0 18 9 9 0 0 1 0-18Z" />
+              <path className="guided-rocket__fin" d="M19 51 7 72l21-8m25-13 12 21-21-8" />
+              <path className="guided-rocket__line" d="M29 76h14" />
+              <path className="guided-flight-flame" d="M29 77 Q36 112 43 77 Q36 89 29 77Z" />
+            </g>
           </g>
         </g>
       </g>
@@ -448,6 +462,7 @@ export function GuidedTrajectory({
   const [stateMessage, setStateMessage] = useState("");
   const [launchPhase, setLaunchPhase] = useState<"idle" | "launching" | "celebrating">("idle");
   const [launchCount, setLaunchCount] = useState(0);
+  const [showAllMilestoneItems, setShowAllMilestoneItems] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -467,7 +482,7 @@ export function GuidedTrajectory({
     if (launchPhase === "idle") return;
     const timer = window.setTimeout(() => {
       setLaunchPhase(launchPhase === "launching" ? "celebrating" : "idle");
-    }, launchPhase === "launching" ? 4200 : 1250);
+    }, launchPhase === "launching" ? 4750 : 1250);
     return () => window.clearTimeout(timer);
   }, [launchPhase]);
 
@@ -638,7 +653,10 @@ export function GuidedTrajectory({
                   setLaunchPhase("launching");
                   setSelectedNode(null);
                 }
-              } else setSelectedNode(guided);
+              } else {
+                setShowAllMilestoneItems(false);
+                setSelectedNode(guided);
+              }
             }}
           >
             <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="rgba(117, 148, 164, 0.18)" />
@@ -670,18 +688,23 @@ export function GuidedTrajectory({
                     <em>{Math.round((1 - profile.gaps[selectedMilestoneDefinition.gap]) * 100)}% ready</em>
                   </div>
                   <section>
-                    <span>Your completed and current work</span>
-                    {selectedMilestoneItems.length > 0 ? selectedMilestoneItems.map((item) => (
-                      <article key={item.id}><i data-status={item.status}>{item.status === "completed" ? "✓" : "●"}</i><div><strong>{item.name}</strong><small>{item.detail}</small></div></article>
-                    )) : <p>No qualifying work is recorded in this section yet.</p>}
-                  </section>
-                  <section>
                     <span>{profile.gaps[selectedMilestoneDefinition.gap] <= 0.28 ? "Section assessment" : "Potential ways to improve"}</span>
                     {profile.gaps[selectedMilestoneDefinition.gap] <= 0.28 ? (
                       <p>This section is currently strong. Focus on maintaining depth and documenting meaningful outcomes rather than adding activities solely for quantity.</p>
                     ) : selectedMilestoneActions.length > 0 ? selectedMilestoneActions.map((action, index) => (
                       <article key={action.node.id}><i>{index + 1}</i><div><strong>{action.actionLabel}</strong><small>{action.impact} impact · {estimatedHours(action)}</small></div></article>
                     )) : <p>No currently eligible option is available. Review prerequisites, deadlines, and existing commitments before adding another activity.</p>}
+                  </section>
+                  <section>
+                    <span>Your completed and current work</span>
+                    {selectedMilestoneItems.length > 0 ? selectedMilestoneItems.slice(0, showAllMilestoneItems ? undefined : 4).map((item) => (
+                      <article key={item.id}><i data-status={item.status}>{item.status === "completed" ? "✓" : "●"}</i><div><strong>{item.name}</strong><small>{item.detail}</small></div></article>
+                    )) : <p>No qualifying work is recorded in this section yet.</p>}
+                    {selectedMilestoneItems.length > 4 ? (
+                      <button className="guided-milestone-summary__toggle" type="button" onClick={() => setShowAllMilestoneItems((shown) => !shown)}>
+                        {showAllMilestoneItems ? "Show less" : `Show all (${selectedMilestoneItems.length})`}
+                      </button>
+                    ) : null}
                   </section>
                 </div>
               ) : null}
