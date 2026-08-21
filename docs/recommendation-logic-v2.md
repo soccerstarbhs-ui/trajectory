@@ -82,10 +82,6 @@ One substantial research experience is defined as at least 120 recorded hours or
 - Comparable labs linked as alternatives cannot appear sequentially.
 - Zuckerman remains hidden after SURF completion and appears only after a SURF rejection, conflict, or ineligibility.
 - Two or more substantial research experiences reduce the marginal value of another research-acquisition action even further.
-- Completing one substantial clinical commitment reduces the value of adding another clinical position to 45% of its baseline category value.
-- Two substantial clinical commitments suppress additional clinical-acquisition recommendations; the engine moves to the strongest remaining category instead.
-- With one substantial clinical commitment, the personalized clinical action favors deeper responsibility and impact in the existing role rather than another entry-level position.
-- Completing one shadowing experience suppresses additional shadowing recommendations.
 
 ## Compensating strengths
 

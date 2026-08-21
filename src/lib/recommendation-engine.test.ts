@@ -54,7 +54,6 @@ function profile(overrides: Partial<DemoProfile> = {}): DemoProfile {
     applicationDate: "2027-06-01",
     weeklyHoursAvailable: 10,
     currentCommitments: 1,
-    clinicalDepth: { experiences: 0, substantialExperiences: 0 },
     researchDepth: { experiences: 0, substantialExperiences: 0 },
     ...overrides,
   };
@@ -91,59 +90,6 @@ test("substantial research applies diminishing returns to another lab", () => {
   assert.ok(baselineZuckerman && experiencedZuckerman);
   assert.ok(experiencedZuckerman.score < baselineZuckerman.score);
   assert.equal(experiencedZuckerman.breakdown.diminishing_returns, 14);
-});
-
-const clinicalNodes: EngineNode[] = [
-  { id: "clinical-goal", type: "goal", name: "Medical School", description: null, metadata: null },
-  { id: "cuems", type: "extracurricular", name: "CU Emergency Medical Service (CUEMS) Volunteer EMT", description: null, metadata: { weekly_hours: 4 } },
-  { id: "hospital", type: "extracurricular", name: "Mount Sinai Morningside Hospital Volunteering", description: null, metadata: { weekly_hours: 4 } },
-  { id: "scribe", type: "extracurricular", name: "Medical Scribing (part-time job)", description: null, metadata: { weekly_hours: 8 } },
-  { id: "shadowing", type: "extracurricular", name: "Physician Shadowing (40+ hrs)", description: null, metadata: { weekly_hours: 2 } },
-  { id: "shadowing-alt", type: "extracurricular", name: "Additional Physician Shadowing", description: null, metadata: { weekly_hours: 2 } },
-  { id: "research-output", type: "personalized_action", name: "Turn existing research into a publication", description: "Deepen existing research.", metadata: { readiness_dimension: "research", personalized: true, base_priority: 0.88, weekly_hours: 4, deepen_existing: true } },
-];
-
-const clinicalEdges: EngineEdge[] = clinicalNodes
-  .filter((node) => node.type !== "goal")
-  .map((node) => ({ id: `${node.id}-goal`, source_id: node.id, target_id: "clinical-goal", relationship_type: "supports", evidence_class: "B", confidence: "moderate" }));
-
-test("one completed clinical commitment pushes research output ahead of another clinical position", () => {
-  const ranked = rankActions(profile({
-    gaps: { ...openGaps, clinical: 1, exploration: 0.8, research: 0.6 },
-    completedNodeNames: ["CU Emergency Medical Service (CUEMS) Volunteer EMT"],
-    actionOutcomes: { "CU Emergency Medical Service (CUEMS) Volunteer EMT": "completed" },
-    clinicalDepth: { experiences: 1, substantialExperiences: 1 },
-    researchDepth: { experiences: 1, substantialExperiences: 1 },
-  }), clinicalNodes, clinicalEdges, []);
-
-  assert.equal(ranked[0]?.node.name, "Turn existing research into a publication");
-  const nextClinical = ranked.find((action) => action.node.name === "Mount Sinai Morningside Hospital Volunteering");
-  assert.ok(nextClinical);
-  assert.equal(nextClinical.breakdown.diminishing_returns, 11);
-  assert.match(nextClinical.reasons.join(" "), /clinical marginal value reduced to 45%/i);
-});
-
-test("two completed clinical commitments suppress additional clinical acquisition", () => {
-  const completedClinical = ["CU Emergency Medical Service (CUEMS) Volunteer EMT", "Mount Sinai Morningside Hospital Volunteering"];
-  const ranked = rankActions(profile({
-    gaps: { ...openGaps, clinical: 1, exploration: 0.8, research: 0.6 },
-    completedNodeNames: completedClinical,
-    actionOutcomes: Object.fromEntries(completedClinical.map((name) => [name, "completed" as const])),
-    clinicalDepth: { experiences: 2, substantialExperiences: 2 },
-    researchDepth: { experiences: 1, substantialExperiences: 1 },
-  }), clinicalNodes, clinicalEdges, []);
-
-  assert.equal(ranked.some((action) => action.node.name === "Medical Scribing (part-time job)"), false);
-  assert.equal(ranked[0]?.node.name, "Turn existing research into a publication");
-});
-
-test("completed shadowing suppresses another shadowing recommendation", () => {
-  const ranked = rankActions(profile({
-    completedNodeNames: ["Physician Shadowing (40+ hrs)"],
-    actionOutcomes: { "Physician Shadowing (40+ hrs)": "completed" },
-  }), clinicalNodes, clinicalEdges, []);
-
-  assert.equal(ranked.some((action) => action.node.name === "Additional Physician Shadowing"), false);
 });
 
 test("profile activities become depth-sensitive readiness gaps", () => {

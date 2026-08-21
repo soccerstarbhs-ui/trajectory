@@ -51,7 +51,6 @@ export type DemoProfile = {
   currentCommitments?: number;
   applicationDate?: string;
   asOfDate?: string;
-  clinicalDepth?: { experiences: number; substantialExperiences: number };
   researchDepth?: { experiences: number; substantialExperiences: number; hasOutput?: boolean };
   targetTier?: import("@/data/admissions-benchmarks").TargetTier;
 };
@@ -155,7 +154,6 @@ export function profileToRecommendationProfile(
     currentCommitments: derived.currentCommitments,
     applicationDate: context.applicationDate ?? (cycleYear ? `${cycleYear}-06-01` : undefined),
     asOfDate: context.asOfDate,
-    clinicalDepth: derived.clinicalDepth,
     researchDepth: derived.researchDepth,
     targetTier: derived.targetFit.targetTier,
   };
@@ -214,14 +212,6 @@ function dimensionsFor(node: EngineNode): ReadinessDimension[] {
 
 function isResearchAcquisition(node: EngineNode) {
   return (node.type === "research_lab" || node.type === "internship") && dimensionsFor(node).includes("research") && !node.metadata?.deepen_existing;
-}
-
-function isShadowingAction(node: EngineNode) {
-  return /shadow/.test(`${node.name} ${JSON.stringify(node.metadata ?? {})}`.toLowerCase());
-}
-
-function isClinicalAcquisition(node: EngineNode) {
-  return dimensionsFor(node).includes("clinical") && !node.metadata?.deepen_existing;
 }
 
 function actionVerb(node: EngineNode) {
@@ -297,14 +287,6 @@ function researchMultiplier(profile: DemoProfile, completedResearchNodes: number
   return 1;
 }
 
-function clinicalMultiplier(profile: DemoProfile, completedClinicalNodes: number) {
-  const substantial = Math.max(profile.clinicalDepth?.substantialExperiences ?? 0, completedClinicalNodes);
-  if (substantial >= 2) return 0;
-  if (substantial === 1) return 0.45;
-  if ((profile.clinicalDepth?.experiences ?? 0) > 0) return 0.72;
-  return 1;
-}
-
 export function rankActions(
   profile: DemoProfile,
   nodes: EngineNode[],
@@ -317,9 +299,6 @@ export function rankActions(
   );
   const completedIds = new Set(completedNodes.map((node) => node.id));
   const completedResearchNodes = completedNodes.filter(isResearchAcquisition).length;
-  const completedClinicalNodes = completedNodes.filter(isClinicalAcquisition).length;
-  const completedShadowingNodes = completedNodes.filter(isShadowingAction).length;
-  const clinicalSaturation = Math.max(profile.clinicalDepth?.substantialExperiences ?? 0, completedClinicalNodes);
   const surfOutcome = outcomeFor(profile, SURF_NAME);
   const recoveryFromSurf = Boolean(surfOutcome && adverseOutcomes.has(surfOutcome));
 
@@ -329,8 +308,6 @@ export function rankActions(
       const outcome = outcomeFor(profile, node.name);
       if (completedIds.has(node.id) || includesName(profile.blockedNodeNames, node.name) || (outcome && outcome !== "completed")) return null;
       if (namesMatch(node.name, ZUCKERMAN_NAME) && !recoveryFromSurf) return null;
-      if (isClinicalAcquisition(node) && clinicalSaturation >= 2) return null;
-      if (isShadowingAction(node) && completedShadowingNodes >= 1) return null;
 
       const incomingPrerequisites = edges.filter((edge) => edge.target_id === node.id && edge.relationship_type === "prerequisite");
       if (incomingPrerequisites.some((edge) => !completedIds.has(edge.source_id))) return null;
@@ -375,16 +352,8 @@ export function rankActions(
       }
       feasibilityFraction *= deadline.timingMultiplier;
 
-      const clinicalAcquisition = isClinicalAcquisition(node);
-      const shadowingAction = isShadowingAction(node);
-      const diminishingMultiplier = isResearchAcquisition(node)
-        ? researchMultiplier(profile, completedResearchNodes)
-        : clinicalAcquisition
-          ? clinicalMultiplier(profile, completedClinicalNodes)
-          : shadowingAction && clinicalSaturation >= 1
-            ? clinicalSaturation >= 2 ? 0.35 : 0.65
-            : 1;
-      const diminishingPenalty = diminishingMultiplier < 1 ? (1 - diminishingMultiplier) * 20 : 0;
+      const diminishingMultiplier = isResearchAcquisition(node) ? researchMultiplier(profile, completedResearchNodes) : 1;
+      const diminishingPenalty = isResearchAcquisition(node) ? (1 - diminishingMultiplier) * 20 : 0;
       const recoveryBonus = namesMatch(node.name, ZUCKERMAN_NAME) && recoveryFromSurf ? 16 : 0;
       const personalization = Number(node.metadata?.base_priority ?? 0) * 14;
 
@@ -412,9 +381,7 @@ export function rankActions(
         newUnlocks.length > 0 ? `Preserves ${newUnlocks.length} new downstream connection${newUnlocks.length === 1 ? "" : "s"}.` : node.metadata?.personalized ? "Tailored to your profile and selected target." : "Adds no new downstream connection.",
         hasUnlockAccess ? "Graph access requirements are satisfied." : "No incoming unlock is complete, so feasibility is reduced.",
       ];
-      if (diminishingPenalty > 0 && isResearchAcquisition(node)) reasons.push(`Research marginal value reduced to ${Math.round(diminishingMultiplier * 100)}% because substantial research already exists.`);
-      else if (diminishingPenalty > 0 && clinicalAcquisition) reasons.push(`Clinical marginal value reduced to ${Math.round(diminishingMultiplier * 100)}% because sustained patient-facing experience is already represented.`);
-      else if (diminishingPenalty > 0 && shadowingAction) reasons.push("Shadowing value is reduced because direct clinical experience is already represented; another category may add more value.");
+      if (diminishingPenalty > 0) reasons.push(`Research marginal value reduced to ${Math.round(diminishingMultiplier * 100)}% because substantial research already exists.`);
       if (recoveryBonus > 0) reasons.push(`Surfaced as a recovery route after SURF ${surfOutcome}.`);
       if (deadline.timingMultiplier < 1) reasons.push("The action's timing does not fit cleanly before the intended application date, so feasibility is reduced.");
 

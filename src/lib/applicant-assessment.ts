@@ -48,7 +48,6 @@ export type ReadinessAssessment = {
   gaps: Record<ReadinessDimension, number>;
   completedNodeNames: string[];
   currentCommitments: number;
-  clinicalDepth: { experiences: number; substantialExperiences: number };
   researchDepth: { experiences: number; substantialExperiences: number; hasOutput: boolean };
   coursework: CourseworkAssessment;
   targetFit: TargetFitAssessment;
@@ -262,7 +261,6 @@ export function deriveApplicantAssessment(snapshot: ApplicantProfileSnapshot, as
   const researchHours = totalHours(research);
   const activityReadiness = (activities: Activity[], hours: number, series: AdmissionsBenchmark["clinical"]) => activities.length === 0 ? 0 : clamp(hoursReadiness(hours, series) * 0.68 + qualityScore(activities, asOfDate) * 0.32);
   const substantialResearch = research.filter((activity) => (Number(activity.hours) || 0) >= 120 || monthSpan(activity.startDate, activity.endDate, asOfDate) >= 4).length;
-  const substantialClinical = clinical.filter((activity) => (Number(activity.hours) || 0) >= 120 || monthSpan(activity.startDate, activity.endDate, asOfDate) >= 4).length;
   const hasOutput = research.some((activity) => outputOutcomes.has(inferredOutcome(activity)));
   let researchReadiness = activityReadiness(research, researchHours, benchmark.research);
   if (substantialResearch >= 1) researchReadiness = Math.max(researchReadiness, hasOutput ? 0.78 : 0.6);
@@ -286,7 +284,6 @@ export function deriveApplicantAssessment(snapshot: ApplicantProfileSnapshot, as
     gaps,
     completedNodeNames: [...snapshot.courses.filter((course) => course.status === "completed").map((course) => course.name), ...counted.filter((activity) => activity.status === "completed").map((activity) => activity.name)],
     currentCommitments: counted.filter((activity) => activity.status === "active").length,
-    clinicalDepth: { experiences: clinical.length, substantialExperiences: substantialClinical },
     researchDepth: { experiences: research.length, substantialExperiences: substantialResearch, hasOutput },
     coursework,
     targetFit,
@@ -305,8 +302,7 @@ export function buildPersonalizedActionNodes(snapshot: ApplicantProfileSnapshot,
   if (snapshot.basic.mcatStatus !== "completed" || (targetFit.mcatPercentileEstimate ?? 100) < 25) nodes.push(actionNode("mcat", snapshot.basic.mcatStatus === "completed" ? "Build a focused MCAT retake decision plan" : `Set and execute a ${targetFit.suggestedMcatGoal}+ MCAT plan`, "testing", `Use ${targetFit.suggestedMcatGoal} as a planning target for ${targetFit.benchmark.shortLabel}, then adjust around practice-test performance and timing.`, { weekly_hours: 10, base_priority: 0.95, evidence_type: "self_reported", evidence_note: benchmarkSources.academic.note }));
   if (coursework.missingStandard.length > 0) nodes.push(actionNode("coursework", "Complete the remaining standard prerequisites", "academic", coursework.missingStandard.join(", "), { weekly_hours: 8, base_priority: 0.92, evidence_type: "institutional", evidence_note: "Common prerequisite pattern; individual schools control their own requirements." }));
   else nodes.push(actionNode("course-audit", "Audit coursework against each school on your list", "planning", "Your standard prerequisite pattern is substantially complete. Verify labs, AP-credit policies, and school-specific Biochemistry, Statistics, Calculus, and writing rules.", { weekly_hours: 1, base_priority: 0.46, evidence_type: "institutional", evidence_note: "Recommended courses are not treated as universal requirements." }));
-  if (assessment.gaps.clinical > 0.3 && assessment.clinicalDepth.substantialExperiences === 0) nodes.push(actionNode("clinical", "Build sustained patient-facing clinical experience", "clinical", comparisons.clinical.note, { weekly_hours: 4, base_priority: 0.78, evidence_type: "self_reported", evidence_note: activityEvidence }));
-  else if (assessment.gaps.clinical > 0.3 && assessment.clinicalDepth.substantialExperiences === 1) nodes.push(actionNode("clinical-depth", "Deepen your existing patient-facing clinical work", "clinical", "Continue the sustained role you already have and prioritize responsibility, patient interaction, reflection, and measurable contribution rather than adding another entry-level position.", { weekly_hours: 3, base_priority: 0.48, evidence_type: "heuristic", evidence_note: "Clinical diminishing-returns rule: deepen one sustained commitment before adding a comparable position.", deepen_existing: true }));
+  if (assessment.gaps.clinical > 0.3) nodes.push(actionNode("clinical", "Build sustained patient-facing clinical experience", "clinical", comparisons.clinical.note, { weekly_hours: 4, base_priority: 0.78, evidence_type: "self_reported", evidence_note: activityEvidence }));
   if (assessment.gaps.service > 0.3) nodes.push(actionNode("service", "Build consistent nonclinical community service", "service", comparisons.service.note, { weekly_hours: 3, base_priority: 0.72, evidence_type: "self_reported", evidence_note: activityEvidence }));
   const activeResearch = snapshot.activities.some((activity) => activity.category === "research" && activity.status === "active");
   if (assessment.researchDepth.substantialExperiences === 0) nodes.push(actionNode("research", "Build one sustained research commitment", "research", comparisons.research.note, { weekly_hours: 8, base_priority: 0.8, evidence_type: "mixed", evidence_note: "Self-reported hours inform depth; the redundancy rule favors one sustained contribution over unrelated short experiences." }));
