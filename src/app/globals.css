@@ -1160,6 +1160,28 @@ body {
 }
 
 .profile-save span { font-size: 1rem; }
+.profile-restart {
+  display: block;
+  margin: 0.7rem auto 0;
+  padding: 0.15rem 0.3rem;
+  border: 0;
+  color: #6f7b8c;
+  background: transparent;
+  font: inherit;
+  font-size: 0.56rem;
+  font-weight: 650;
+  letter-spacing: 0.025em;
+  text-decoration: underline;
+  text-decoration-color: rgba(148, 163, 184, 0.22);
+  text-underline-offset: 0.2rem;
+  cursor: pointer;
+  transition: color 160ms ease, text-decoration-color 160ms ease;
+}
+.profile-restart:hover,
+.profile-restart:focus-visible {
+  color: #f19aaa;
+  text-decoration-color: rgba(241, 154, 170, 0.55);
+}
 .profile-summary > small { display: block; margin-top: 0.8rem; color: #4d5b6e; font-size: 0.58rem; line-height: 1.5; text-align: center; }
 .profile-saved { margin: 0.8rem 0 0 !important; color: #76e8c7 !important; font-size: 0.65rem !important; letter-spacing: 0 !important; text-align: center; }
 

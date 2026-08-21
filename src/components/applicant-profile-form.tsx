@@ -306,6 +306,16 @@ export function ApplicantProfileForm() {
     router.push("/trajectory");
   }
 
+  function restartProfile() {
+    const confirmed = window.confirm(
+      "Delete this applicant profile and start over? This will remove all saved academics, coursework, activities, and pending import suggestions from this browser."
+    );
+    if (!confirmed) return;
+
+    window.localStorage.removeItem(storageKey);
+    window.location.replace("/profile");
+  }
+
   async function scanResume() {
     if (!resumeFile) {
       setResumeError("Choose a PDF or DOCX resume first.");
@@ -760,6 +770,7 @@ export function ApplicantProfileForm() {
             ))}
           </div>
           <button className="profile-save" type="submit">Save applicant profile <span>→</span></button>
+          <button className="profile-restart" type="button" onClick={restartProfile}>Delete all and restart</button>
           {saved ? <p className="profile-saved" role="status">Profile saved. Gap analysis comes next.</p> : <small>Your information is saved in this browser for the MVP.</small>}
         </aside>
       </form>
