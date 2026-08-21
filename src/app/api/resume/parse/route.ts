@@ -28,7 +28,7 @@ const resumeSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["category", "name", "role", "status", "startDate", "endDate", "description"],
+        required: ["category", "name", "role", "status", "startDate", "endDate", "hours", "description"],
         properties: {
           category: { type: "string", enum: ["extracurricular", "clinical", "volunteering", "leadership", "research", "other"] },
           name: { type: "string" },
@@ -36,6 +36,7 @@ const resumeSchema = {
           status: { type: "string", enum: ["planned", "active", "completed"] },
           startDate: { type: "string", description: "YYYY-MM when explicit, otherwise empty" },
           endDate: { type: "string", description: "YYYY-MM when explicit, otherwise empty" },
+          hours: { type: "string", description: "Explicit total activity hours as digits only, otherwise empty" },
           description: { type: "string" },
         },
       },
@@ -48,7 +49,9 @@ const extractionPrompt = `Extract only information explicitly supported by this 
 Classify experiences as extracurricular, clinical, volunteering, leadership, research, or other.
 Do not invent dates, GPA, grades, duties, application timing, or hours.
 Do not extract or return coursework. Coursework is imported separately from the student's transcript.
-Leave unknown strings empty. Do not return total hours even if the resume contains them; the student will verify and enter hours manually.
+Leave unknown strings empty. The student will review every extracted value before it is added to the profile.
+For each activity, extract total hours when the résumé explicitly states a cumulative total (for example, "120 hours" or "Total: 85 hrs"). Return digits only in hours.
+Do not convert hours per week into total hours. If only a weekly commitment is stated, keep hours empty and preserve that weekly commitment in the description.
 Treat substantial projects performed within a research lab as one research experience rather than multiple separate lab commitments.
 Return concise, editable descriptions and include a note for anything genuinely ambiguous.`;
 

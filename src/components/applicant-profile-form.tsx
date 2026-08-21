@@ -40,7 +40,7 @@ type ResumeActivity = Omit<Activity, "id"> & { selected: boolean };
 
 type ResumeResult = {
   profile: ResumeProfile;
-  activities: Array<Omit<ResumeActivity, "selected" | "hours">>;
+  activities: Array<Omit<ResumeActivity, "selected">>;
   notes: string[];
 };
 
@@ -273,7 +273,7 @@ export function ApplicantProfileForm() {
       if (!response.ok) throw new Error(result.error || "Resume scanning failed.");
 
       setResumeProfile(result.profile);
-      setResumeActivities(result.activities.map((activity) => ({ ...activity, hours: "", selected: true })));
+      setResumeActivities(result.activities.map((activity) => ({ ...activity, hours: activity.hours || "", selected: true })));
       setResumeNotes(result.notes);
       setShowAllResumeActivities(false);
     } catch (error) {
@@ -382,7 +382,7 @@ export function ApplicantProfileForm() {
   }
 
   return (
-    <main className="profile-page">
+    <main className="profile-page profile-page--entering">
       <div className="profile-page__glow" aria-hidden="true" />
       <header className="profile-nav">
         <Link href="/" className="orbit-brand" aria-label="Return to destinations">
@@ -407,7 +407,7 @@ export function ApplicantProfileForm() {
               <div>
                 <span>QUICK START · CLAUDE-ASSISTED</span>
                 <h2>Start with your résumé</h2>
-                <p>Upload a PDF or DOCX. Review everything Claude finds, then add the missing hours yourself.</p>
+                <p>Upload a PDF or DOCX. Claude will extract explicit total hours when available; review every value and fill only what is missing.</p>
               </div>
               <i aria-hidden="true">↥</i>
             </div>
@@ -454,7 +454,7 @@ export function ApplicantProfileForm() {
                         <input type="checkbox" checked={activity.selected} onChange={(event) => setResumeActivities((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, selected: event.target.checked } : item))} />
                         <span><small>{categoryLabels[activity.category]} · {statusLabels[activity.status]}</small><strong>{activity.name}</strong><i>{activity.role}</i></span>
                       </label>
-                      <label className="resume-hours"><span>Total hours</span><input type="number" min="0" placeholder="Add hours" value={activity.hours} onChange={(event) => setResumeActivities((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, hours: event.target.value } : item))} /></label>
+                      <label className="resume-hours"><span>{activity.hours ? "Extracted total hours" : "Total hours"}</span><input type="number" min="0" placeholder="Add if missing" value={activity.hours} onChange={(event) => setResumeActivities((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, hours: event.target.value } : item))} /></label>
                     </div>
                   ))}
                 </div>

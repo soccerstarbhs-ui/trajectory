@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -208,6 +208,26 @@ function GuidedNodeCard({ data, selected }: NodeProps<GuidedNode>) {
     );
   }
 
+  if (data.kind === "milestone") {
+    return (
+      <div
+        className="guided-node guided-milestone-node"
+        data-kind="milestone"
+        data-status={data.status}
+        data-selected={selected}
+        style={{ "--guided-accent": color } as React.CSSProperties}
+      >
+        <Handle type="target" position={Position.Left} />
+        <span className="guided-node__eyebrow"><i>{data.eyebrow}</i><b>{statusLabels[data.status]}</b></span>
+        <strong>{data.title}</strong>
+        <MilestoneIcon milestone={data.milestone!} />
+        <small>{data.detail}</small>
+        <span className="guided-milestone-node__footer">Click for details <b>→</b></span>
+        <Handle type="source" position={Position.Right} />
+      </div>
+    );
+  }
+
   return (
     <div
       className="guided-node"
@@ -228,6 +248,17 @@ function GuidedNodeCard({ data, selected }: NodeProps<GuidedNode>) {
   );
 }
 
+function MilestoneIcon({ milestone }: { milestone: MilestoneId }) {
+  const paths: Record<MilestoneId, React.ReactNode> = {
+    foundation: <><rect x="8" y="25" width="9" height="9" /><rect x="20" y="25" width="9" height="9" /><rect x="32" y="25" width="9" height="9" /><rect x="14" y="14" width="9" height="9" /><rect x="26" y="14" width="9" height="9" /><rect x="20" y="3" width="9" height="9" /></>,
+    experience: <><path d="M25 38V22" /><path d="M13 7v8a8 8 0 0 0 16 0V7" /><path d="M9 7h8m8 0h8" /><circle cx="25" cy="41" r="4" /></>,
+    depth: <><path d="M16 8h12m-9 0v11l-8 16a5 5 0 0 0 5 7h18a5 5 0 0 0 5-7l-8-16V8" /><path d="M15 31h20" /><circle cx="21" cy="35" r="2" /><circle cx="29" cy="38" r="2" /></>,
+    differentiation: <><circle cx="25" cy="18" r="10" /><path d="m17 26-3 16 11-6 11 6-3-16" /><path d="m25 11 2 4 5 .7-3.5 3.4.8 4.9-4.3-2.3-4.3 2.3.8-4.9-3.5-3.4 5-.7 2-4Z" /></>,
+    application: <><path d="M12 4h20l7 7v32H12Z" /><path d="M32 4v9h8M18 21h15M18 27h15M18 33h8" /><circle cx="36" cy="37" r="7" /><path d="m33 37 2 2 4-5" /></>,
+  };
+  return <svg className="guided-milestone-icon" viewBox="0 0 50 50" aria-hidden="true">{paths[milestone]}</svg>;
+}
+
 function RocketGraphic({ moving = false }: { moving?: boolean }) {
   return (
     <span className="guided-rocket" data-moving={moving} aria-hidden="true">
@@ -239,6 +270,59 @@ function RocketGraphic({ moving = false }: { moving?: boolean }) {
       </svg>
       <i className="guided-rocket__flame" />
     </span>
+  );
+}
+
+function FlightRocket({ onComplete }: { onComplete: () => void }) {
+  const motionRef = useRef<SVGAnimationElement | null>(null);
+
+  useEffect(() => {
+    const motion = motionRef.current;
+    if (!motion) return;
+    let completed = false;
+    const finish = () => {
+      if (completed) return;
+      completed = true;
+      onComplete();
+    };
+    const restartFrame = window.requestAnimationFrame(() => {
+      motion.ownerSVGElement?.setCurrentTime(0);
+      motion.beginElement();
+    });
+    motion.addEventListener("endEvent", finish);
+    const fallback = window.setTimeout(finish, 4200);
+    return () => {
+      completed = true;
+      window.cancelAnimationFrame(restartFrame);
+      window.clearTimeout(fallback);
+      motion.removeEventListener("endEvent", finish);
+    };
+  }, [onComplete]);
+
+  return (
+    <svg className="guided-flight-svg" viewBox="0 0 1600 830" preserveAspectRatio="none" aria-hidden="true">
+      <g>
+        <animateMotion
+          ref={motionRef}
+          begin="indefinite"
+          dur="3.85s"
+          path="M 130 720 C 260 510 390 400 560 400 C 735 400 900 425 1000 335 C 1090 285 1080 165 970 170 C 860 175 865 320 965 335 C 1065 350 1070 210 1135 180 C 1190 155 1240 185 1294 210"
+          keyPoints="0;1"
+          keyTimes="0;1"
+          keySplines=".26 .08 .24 1"
+          calcMode="spline"
+          rotate="auto"
+          fill="freeze"
+        />
+        <g transform="rotate(90) translate(-36 -54)">
+          <path className="guided-rocket__body" d="M36 5C51 18 57 36 54 62L43 76H29L18 62C15 36 21 18 36 5Z" />
+          <path className="guided-rocket__window" d="M36 24a9 9 0 1 1 0 18 9 9 0 0 1 0-18Z" />
+          <path className="guided-rocket__fin" d="M19 51 7 72l21-8m25-13 12 21-21-8" />
+          <path className="guided-rocket__line" d="M29 76h14" />
+          <path className="guided-flight-flame" d="M29 77 Q36 112 43 77 Q36 89 29 77Z" />
+        </g>
+      </g>
+    </svg>
   );
 }
 
@@ -267,16 +351,11 @@ function buildGuidedGraph({
   snapshot,
   profile,
   ranked,
-  graphNodes,
-  expanded,
 }: {
   snapshot: ApplicantProfileSnapshot;
   profile: DemoProfile;
   ranked: RankedAction[];
-  graphNodes: GraphNodeRecord[];
-  expanded: MilestoneId[];
 }) {
-  const profileItems = buildProfileItems(snapshot);
   const topAction = ranked[0];
   const recommendedMilestone = topAction ? milestoneForGraphNode(topAction.node) : null;
   const monthsUntilApplication = profile.applicationDate
@@ -329,106 +408,12 @@ function buildGuidedGraph({
       source: priorId,
       target: `milestone-${milestone.id}`,
       type: "bezier",
-      animated: status === "active" || status === "recommended",
+      animated: false,
       markerEnd: { type: MarkerType.ArrowClosed },
       className: "guided-spine-edge",
       style: { stroke: "#5ce0b5", strokeWidth: status === "recommended" ? 3.4 : 2.7 },
     });
     priorId = `milestone-${milestone.id}`;
-
-    const actionItems = ranked
-      .filter((action) => milestoneForGraphNode(action.node) === milestone.id)
-      .map((action) => ({
-        id: `action-${action.node.id}`,
-        name: action.node.name,
-        detail: action === topAction ? `${action.impact} impact · ${estimatedHours(action)}` : `${action.impact} impact`,
-        milestone: milestone.id,
-        status: action === topAction ? "recommended" as const : "available" as const,
-        actionName: action.node.name,
-        source: "graph" as const,
-      }));
-    const actualItems = profileItems
-      .filter((item) => item.milestone === milestone.id)
-      .map((item) => ({ ...item, source: "profile" as const }));
-    const usedNames = new Set<string>();
-    const combined: Array<ProfileItem & { actionName?: string; source: "profile" | "graph" }> = [...actualItems.sort((a, b) => {
-      const order: Record<VisualStatus, number> = { active: 0, completed: 1, recommended: 2, available: 3, blocked: 4, goal: 5 };
-      return order[a.status] - order[b.status];
-    }), ...actionItems].filter((item) => {
-      const key = normalize(item.name);
-      if ([...usedNames].some((name) => namesMatch(name, key))) return false;
-      usedNames.add(key);
-      return true;
-    });
-
-    const adverseNames = Object.entries(profile.actionOutcomes ?? {})
-      .filter(([, outcome]) => outcome !== "completed")
-      .map(([name]) => name);
-    const blockedCandidate = graphNodes.find((node) =>
-      node.type !== "goal"
-      && milestoneForGraphNode(node) === milestone.id
-      && !combined.some((item) => namesMatch(item.name, node.name))
-      && (adverseNames.some((name) => namesMatch(name, node.name)) || !ranked.some((action) => action.node.id === node.id))
-    );
-    if (blockedCandidate) {
-      combined.push({
-        id: `blocked-${blockedCandidate.id}`,
-        name: blockedCandidate.name,
-        detail: "Unavailable from your current state",
-        milestone: milestone.id,
-        status: "blocked",
-        actionName: blockedCandidate.name,
-        source: "graph",
-      });
-    }
-
-    const visibleLimit = expanded.includes(milestone.id) ? 8 : 3;
-    const visible = combined.slice(0, visibleLimit);
-    visible.forEach((item, itemIndex) => {
-      const nodeId = `branch-${milestone.id}-${item.id}`;
-      nodes.push({
-        id: nodeId,
-        type: "guided",
-        position: { x: milestone.x + 32, y: milestone.y + 155 + itemIndex * 76 },
-        data: {
-          kind: "activity",
-          eyebrow: item.source === "profile" ? "Your profile" : milestone.title,
-          title: item.name,
-          detail: item.detail,
-          status: item.status,
-          milestone: milestone.id,
-          actionName: item.actionName,
-          source: item.source,
-        },
-      });
-      edges.push({
-        id: `branch-edge-${nodeId}`,
-        source: `milestone-${milestone.id}`,
-        target: nodeId,
-        type: "smoothstep",
-        animated: item.status === "active" || item.status === "recommended",
-        className: "guided-branch-edge",
-        style: { stroke: statusColors[item.status], strokeWidth: item.status === "recommended" ? 2 : 1.2, opacity: 0.75 },
-      });
-    });
-
-    const hidden = combined.length - visible.length;
-    if (hidden > 0 || expanded.includes(milestone.id)) {
-      const collapseId = `collapse-${milestone.id}`;
-      nodes.push({
-        id: collapseId,
-        type: "guided",
-        position: { x: milestone.x + 32, y: milestone.y + 155 + visible.length * 76 },
-        data: {
-          kind: "collapse",
-          eyebrow: expanded.includes(milestone.id) ? "Collapse" : "Expand",
-          title: expanded.includes(milestone.id) ? "Show less" : `+${hidden} more`,
-          detail: "",
-          status: "available",
-          milestone: milestone.id,
-        },
-      });
-    }
   }
 
   nodes.push({
@@ -448,7 +433,7 @@ function buildGuidedGraph({
     source: "milestone-application",
     target: "medical-school-goal",
     type: "bezier",
-    animated: true,
+    animated: false,
     markerEnd: { type: MarkerType.ArrowClosed },
     className: "guided-spine-edge guided-spine-edge--goal",
     style: { stroke: statusColors.goal, strokeWidth: 3 },
@@ -472,7 +457,6 @@ export function GuidedTrajectory({
 }) {
   const [snapshot, setSnapshot] = useState<ApplicantProfileSnapshot | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [expandedMilestones, setExpandedMilestones] = useState<MilestoneId[]>([]);
   const [selectedNode, setSelectedNode] = useState<GuidedNode | null>(null);
   const [selectedGap, setSelectedGap] = useState<ReadinessDimension | null>(null);
   const [completedActions, setCompletedActions] = useState<string[]>([]);
@@ -481,6 +465,7 @@ export function GuidedTrajectory({
   const [stateMessage, setStateMessage] = useState("");
   const [launchPhase, setLaunchPhase] = useState<"idle" | "launching" | "celebrating">("idle");
   const [launchCount, setLaunchCount] = useState(0);
+  const [showAllMilestoneItems, setShowAllMilestoneItems] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -496,11 +481,11 @@ export function GuidedTrajectory({
     return () => window.clearTimeout(timer);
   }, []);
 
+  const completeLaunch = useCallback(() => setLaunchPhase("celebrating"), []);
+
   useEffect(() => {
-    if (launchPhase === "idle") return;
-    const timer = window.setTimeout(() => {
-      setLaunchPhase(launchPhase === "launching" ? "celebrating" : "idle");
-    }, launchPhase === "launching" ? 2300 : 1250);
+    if (launchPhase !== "celebrating") return;
+    const timer = window.setTimeout(() => setLaunchPhase("idle"), 1250);
     return () => window.clearTimeout(timer);
   }, [launchPhase]);
 
@@ -520,8 +505,16 @@ export function GuidedTrajectory({
   );
   const topAction = ranked[0];
   const guidedGraph = snapshot && profile
-    ? buildGuidedGraph({ snapshot, profile, ranked, graphNodes, expanded: expandedMilestones })
+    ? buildGuidedGraph({ snapshot, profile, ranked })
     : { nodes: [] as GuidedNode[], edges: [] as Edge[] };
+  const selectedMilestone = selectedNode?.data.kind === "milestone" ? selectedNode.data.milestone : undefined;
+  const selectedMilestoneDefinition = milestoneDefinitions.find((milestone) => milestone.id === selectedMilestone);
+  const selectedMilestoneItems = selectedMilestone && snapshot
+    ? buildProfileItems(snapshot).filter((item) => item.milestone === selectedMilestone && (item.status === "completed" || item.status === "active"))
+    : [];
+  const selectedMilestoneActions = selectedMilestone
+    ? ranked.filter((action) => milestoneForGraphNode(action.node) === selectedMilestone).slice(0, 5)
+    : [];
 
   const supportingEvidence = useMemo(() => {
     if (!topAction) return [];
@@ -539,13 +532,6 @@ export function GuidedTrajectory({
       <span>MEDICAL SCHOOL · PERSONALIZED TRAJECTORY</span>
     </nav>
   );
-
-  function toggleMilestone(milestone?: MilestoneId) {
-    if (!milestone) return;
-    setExpandedMilestones((current) => current.includes(milestone)
-      ? current.filter((item) => item !== milestone)
-      : [...current, milestone]);
-  }
 
   function recordOutcome(actionName: string, outcome: ActionOutcome | null) {
     setOutcomes((current) => {
@@ -670,8 +656,10 @@ export function GuidedTrajectory({
                   setLaunchPhase("launching");
                   setSelectedNode(null);
                 }
-              } else if (guided.data.kind === "collapse") toggleMilestone(guided.data.milestone);
-              else setSelectedNode(guided);
+              } else {
+                setShowAllMilestoneItems(false);
+                setSelectedNode(guided);
+              }
             }}
           >
             <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="rgba(117, 148, 164, 0.18)" />
@@ -680,7 +668,7 @@ export function GuidedTrajectory({
 
           {launchPhase === "launching" ? (
             <div className="guided-flight-path" key={launchCount} aria-hidden="true">
-              <RocketGraphic moving />
+              <FlightRocket onComplete={completeLaunch} />
             </div>
           ) : null}
           {launchPhase === "celebrating" ? (
@@ -695,6 +683,34 @@ export function GuidedTrajectory({
               <button type="button" aria-label="Close details" onClick={() => setSelectedNode(null)}>×</button>
               <small>{selectedNode.data.eyebrow} · {statusLabels[selectedNode.data.status]}</small>
               <h2>{selectedNode.data.title}</h2><p>{selectedNode.data.detail}</p>
+              {selectedMilestone && selectedMilestoneDefinition ? (
+                <div className="guided-milestone-summary">
+                  <div className="guided-milestone-summary__strength">
+                    <span>Section readiness</span>
+                    <strong>{readinessLabel(profile.gaps[selectedMilestoneDefinition.gap])}</strong>
+                    <em>{Math.round((1 - profile.gaps[selectedMilestoneDefinition.gap]) * 100)}% ready</em>
+                  </div>
+                  <section>
+                    <span>{profile.gaps[selectedMilestoneDefinition.gap] <= 0.28 ? "Section assessment" : "Potential ways to improve"}</span>
+                    {profile.gaps[selectedMilestoneDefinition.gap] <= 0.28 ? (
+                      <p>This section is currently strong. Focus on maintaining depth and documenting meaningful outcomes rather than adding activities solely for quantity.</p>
+                    ) : selectedMilestoneActions.length > 0 ? selectedMilestoneActions.map((action, index) => (
+                      <article key={action.node.id}><i>{index + 1}</i><div><strong>{action.actionLabel}</strong><small>{action.impact} impact · {estimatedHours(action)}</small></div></article>
+                    )) : <p>No currently eligible option is available. Review prerequisites, deadlines, and existing commitments before adding another activity.</p>}
+                  </section>
+                  <section>
+                    <span>Your completed and current work</span>
+                    {selectedMilestoneItems.length > 0 ? selectedMilestoneItems.slice(0, showAllMilestoneItems ? undefined : 4).map((item) => (
+                      <article key={item.id}><i data-status={item.status}>{item.status === "completed" ? "✓" : "●"}</i><div><strong>{item.name}</strong><small>{item.detail}</small></div></article>
+                    )) : <p>No qualifying work is recorded in this section yet.</p>}
+                    {selectedMilestoneItems.length > 4 ? (
+                      <button className="guided-milestone-summary__toggle" type="button" onClick={() => setShowAllMilestoneItems((shown) => !shown)}>
+                        {showAllMilestoneItems ? "Show less" : `Show all (${selectedMilestoneItems.length})`}
+                      </button>
+                    ) : null}
+                  </section>
+                </div>
+              ) : null}
               {selectedNode.data.kind === "goal" ? (
                 <div className="guided-goal-summary">
                   <span>Application cycle</span><strong>{snapshot.basic.applicationCycle}</strong>
@@ -713,13 +729,12 @@ export function GuidedTrajectory({
                   <button type="button" onClick={() => recordOutcome(selectedNode.data.actionName!, null)}>Still considering</button>
                 </div>
               ) : null}
-              {selectedNode.data.kind === "milestone" ? <button className="guided-expand" type="button" onClick={() => { toggleMilestone(selectedNode.data.milestone); setSelectedNode(null); }}>Expand this milestone</button> : null}
             </aside>
           ) : null}
         </div>
         <div className="guided-legend">
           {(Object.keys(statusLabels) as VisualStatus[]).map((status) => <span key={status}><i style={{ background: statusColors[status] }} />{statusLabels[status]}</span>)}
-          <em>Solid line · primary route</em><em>Thin line · related activity</em>
+          <em>Solid line · primary route</em>
         </div>
       </div>
 
