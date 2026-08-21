@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { CSSProperties } from "react";
 
-type MotionPhase = "orbiting" | "approaching" | "launching";
+type MotionPhase = "orbiting" | "approaching" | "launching" | "transitioning";
 type DestinationId = "law" | "medical" | "dental";
 type Point = { x: number; y: number };
 type MotionFrame = { ball: Point; trail: Point[] };
+type PortalRect = { top: number; left: number; width: number; height: number };
 
 type Destination = {
   id: DestinationId;
@@ -76,6 +78,7 @@ export function OrbitLanding() {
   const [phase, setPhase] = useState<MotionPhase>("orbiting");
   const [selectedId, setSelectedId] = useState<DestinationId | null>(null);
   const [hoveredId, setHoveredId] = useState<DestinationId | null>(null);
+  const [portalRect, setPortalRect] = useState<PortalRect | null>(null);
   const [motion, setMotion] = useState<MotionFrame>(() => ({
     ball: pointOnOrbit(Math.PI / 2),
     trail: initialTrail(Math.PI / 2),
@@ -85,6 +88,8 @@ export function OrbitLanding() {
   const angleRef = useRef(Math.PI / 2);
   const launchStartRef = useRef(0);
   const previousTimeRef = useRef(0);
+  const medicalButtonRef = useRef<HTMLButtonElement | null>(null);
+  const transitionTimeoutRef = useRef<number | null>(null);
 
   const selectDestination = useCallback((destination: DestinationId) => {
     if (phaseRef.current !== "orbiting") return;
@@ -93,6 +98,19 @@ export function OrbitLanding() {
     phaseRef.current = "approaching";
     setPhase("approaching");
   }, []);
+
+  const beginProfileTransition = useCallback(() => {
+    if (phaseRef.current === "transitioning") return;
+    phaseRef.current = "transitioning";
+    setPhase("transitioning");
+    const rect = medicalButtonRef.current?.getBoundingClientRect();
+    if (!rect) {
+      router.push("/profile");
+      return;
+    }
+    setPortalRect({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
+    transitionTimeoutRef.current = window.setTimeout(() => router.push("/profile"), 1050);
+  }, [router]);
 
   useEffect(() => {
     let frame = 0;
@@ -126,7 +144,7 @@ export function OrbitLanding() {
           angleRef.current = (angleRef.current + step) % (Math.PI * 2);
           moveBall(pointOnOrbit(angleRef.current));
         }
-      } else {
+      } else if (phaseRef.current === "launching") {
         const destinationId = selectedRef.current;
         if (!destinationId) return;
         const destination = destinations[destinationId];
@@ -135,9 +153,12 @@ export function OrbitLanding() {
         moveBall(pointOnBezier(BRANCH_POINT, destination.controls[0], destination.controls[1], destination.end, progress));
 
         if (rawProgress === 1) {
-          router.push(destination.route);
+          if (destinationId === "medical") beginProfileTransition();
+          else router.push(destination.route);
           return;
         }
+      } else {
+        return;
       }
 
       frame = requestAnimationFrame(animate);
@@ -145,7 +166,11 @@ export function OrbitLanding() {
 
     frame = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(frame);
-  }, [router]);
+  }, [beginProfileTransition, router]);
+
+  useEffect(() => () => {
+    if (transitionTimeoutRef.current !== null) window.clearTimeout(transitionTimeoutRef.current);
+  }, []);
 
   const tetherVisible = phase !== "launching";
   const highlightedId = selectedId ?? hoveredId;
@@ -213,6 +238,7 @@ export function OrbitLanding() {
             {Object.values(destinations).map((destination) => (
               <foreignObject className="destination-control" key={destination.id} x="612" y={destination.buttonY - 8} width="186" height="92">
                 <button
+                  ref={destination.id === "medical" ? medicalButtonRef : undefined}
                   className={`destination-button${highlightedId === destination.id ? " is-active" : ""}`}
                   type="button"
                   disabled={phase !== "orbiting"}
@@ -230,6 +256,28 @@ export function OrbitLanding() {
           </svg>
         </div>
       </section>
+
+      {portalRect ? (
+        <div
+          className="orbit-profile-transition"
+          style={{
+            "--portal-top": `${portalRect.top}px`,
+            "--portal-left": `${portalRect.left}px`,
+            "--portal-width": `${portalRect.width}px`,
+            "--portal-height": `${portalRect.height}px`,
+          } as CSSProperties}
+          aria-hidden="true"
+        >
+          <div className="orbit-profile-transition__stars" />
+          <div className="orbit-profile-transition__preview">
+            <div className="orbit-profile-transition__brand"><span className="orbit-brand__mark"><i /></span>TRAJECTORY</div>
+            <p>STEP 01 · YOUR BACKGROUND</p>
+            <h2>Show us where you are now.</h2>
+            <span>Your personalized path starts with the experiences you already have.</span>
+            <div className="orbit-profile-transition__cards"><i /><i /><i /></div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
