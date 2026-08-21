@@ -1,4 +1,5 @@
-import { TrajectoryGraph, type EvidenceRecord, type GraphEdgeRecord, type GraphNodeRecord } from "@/components/trajectory-graph";
+import { GuidedTrajectory } from "@/components/guided-trajectory";
+import type { EvidenceRecord, GraphEdgeRecord, GraphNodeRecord } from "@/components/trajectory-graph";
 import type { RubricComponent } from "@/lib/recommendation-engine";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
@@ -38,7 +39,7 @@ export default async function PersonalizedTrajectoryPage() {
 
   return (
     <main className="trajectory-shell">
-      <TrajectoryGraph
+      <GuidedTrajectory
         graphNodes={(nodesResult.data ?? []) as GraphNodeRecord[]}
         graphEdges={(edgesResult.data ?? []) as GraphEdgeRecord[]}
         rubricComponents={(rubricResult.data ?? []) as RubricComponent[]}
