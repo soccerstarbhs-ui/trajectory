@@ -1,5 +1,8 @@
+import { buildPersonalizedActionNodes, deriveApplicantAssessment } from "@/lib/applicant-assessment";
+
 export type ReadinessDimension =
   | "academic"
+  | "testing"
   | "clinical"
   | "research"
   | "service"
@@ -48,11 +51,31 @@ export type DemoProfile = {
   currentCommitments?: number;
   applicationDate?: string;
   asOfDate?: string;
-  researchDepth?: { experiences: number; substantialExperiences: number };
+  researchDepth?: { experiences: number; substantialExperiences: number; hasOutput?: boolean };
+  targetTier?: import("@/data/admissions-benchmarks").TargetTier;
 };
 
 export type ApplicantProfileSnapshot = {
-  basic: { major: string; gpa: string; graduationDate: string; applicationCycle: string };
+  basic: {
+    major: string;
+    gpa: string;
+    scienceGpa?: string;
+    graduationDate: string;
+    applicationCycle: string;
+    targetTier?: import("@/data/admissions-benchmarks").TargetTier | "";
+    mcatStatus?: "not_taken" | "planning" | "scheduled" | "completed" | "retaking" | "";
+    mcatScore?: string;
+    mcatGoal?: string;
+    mcatDate?: string;
+    academicTrend?: "upward" | "stable" | "downward" | "mixed" | "not_sure" | "";
+    stateResidency?: string;
+    applicantStatus?: string;
+    gapYearFlexibility?: string;
+    geographyPreferences?: string;
+    missionPreferences?: string;
+    contextFactors?: string;
+    weeklyHoursAvailable?: string;
+  };
   courses: Array<{
     name: string;
     status: "planned" | "in_progress" | "completed";
@@ -68,6 +91,8 @@ export type ApplicantProfileSnapshot = {
     endDate: string;
     hours: string;
     description: string;
+    responsibility?: "participant" | "contributor" | "lead";
+    outcome?: "none" | "measurable_impact" | "presentation" | "poster" | "publication" | "award" | "other";
   }>;
 };
 
@@ -80,6 +105,8 @@ export type RankedAction = {
   unlockCount: number;
   evidenceClass: string;
   confidence: string;
+  evidenceType?: "school_data" | "research" | "self_reported" | "institutional" | "heuristic" | "mixed";
+  evidenceNote?: string;
   breakdown: Record<string, number>;
   reasons: string[];
 };
@@ -100,87 +127,12 @@ const fallbackWeights: Record<string, number> = {
 
 const evidenceFraction: Record<string, number> = { A: 1, B: 0.8, C: 0.6, D: 0.4, E: 0.2 };
 
-const prerequisitePatterns: RegExp[] = [
-  /CHEM.*(?:UN)?1403|GENERAL CHEMISTRY I\b/i,
-  /CHEM.*(?:UN)?1404|GENERAL CHEMISTRY II\b/i,
-  /CHEM.*(?:UN)?2443|ORGANIC CHEMISTRY I\b/i,
-  /CHEM.*(?:UN)?2444|ORGANIC CHEMISTRY II\b/i,
-  /BIOL.*(?:UN)?2005|INTRODUCTORY BIOLOGY I\b/i,
-  /BIOL.*(?:UN)?2006|INTRODUCTORY BIOLOGY II\b/i,
-  /PHYS.*(?:UN)?1201|GENERAL PHYSICS I\b/i,
-  /PHYS.*(?:UN)?1202|GENERAL PHYSICS II\b/i,
-  /BIOC.*(?:UN)?3300|BIOCHEMISTRY/i,
-];
-
-function clamp(value: number, minimum = 0, maximum = 1) {
-  return Math.max(minimum, Math.min(maximum, value));
-}
-
-function monthsBetween(startDate: string, endDate: string, fallbackEnd: Date) {
-  if (!startDate) return 0;
-  const start = new Date(`${startDate}-01T00:00:00Z`);
-  const end = endDate ? new Date(`${endDate}-01T00:00:00Z`) : fallbackEnd;
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
-  return Math.max(0, (end.getUTCFullYear() - start.getUTCFullYear()) * 12 + end.getUTCMonth() - start.getUTCMonth());
-}
-
-function gapFromHours(hours: number, low: number, substantial: number) {
-  if (hours <= 0) return 1;
-  if (hours < low) return 0.72;
-  if (hours < substantial) return 0.42;
-  return 0.18;
-}
 
 export function deriveReadinessGaps(snapshot: ApplicantProfileSnapshot, asOfDate = new Date()) {
-  const completedCourses = snapshot.courses.filter((course) => course.status === "completed");
-  const satisfiedPrerequisites = prerequisitePatterns.filter((pattern) =>
-    completedCourses.some((course) => pattern.test(course.name))
-  ).length;
-  const courseGap = 1 - satisfiedPrerequisites / prerequisitePatterns.length;
-  const gpa = Number(snapshot.basic.gpa);
-  const gpaGap = !Number.isFinite(gpa) ? 0.55 : gpa >= 3.7 ? 0.12 : gpa >= 3.4 ? 0.3 : gpa >= 3 ? 0.58 : 0.82;
-
-  const countedActivities = snapshot.activities.filter((activity) => activity.status !== "planned");
-  const hoursFor = (categories: ApplicantProfileSnapshot["activities"][number]["category"][]) =>
-    countedActivities
-      .filter((activity) => categories.includes(activity.category))
-      .reduce((total, activity) => total + (Number(activity.hours) || 0), 0);
-
-  const researchActivities = countedActivities.filter((activity) => activity.category === "research");
-  const substantialResearch = researchActivities.filter((activity) =>
-    (Number(activity.hours) || 0) >= 120 || monthsBetween(activity.startDate, activity.endDate, asOfDate) >= 4
-  ).length;
-  const researchGap = researchActivities.length === 0 ? 1 : substantialResearch === 0 ? 0.58 : substantialResearch === 1 ? 0.22 : 0.1;
-
-  const clinicalHours = hoursFor(["clinical"]);
-  const serviceHours = hoursFor(["volunteering"]);
-  const leadershipHours = hoursFor(["leadership"]);
-  const explorationHours = countedActivities
-    .filter((activity) => /shadow|physician|specialt/i.test(`${activity.name} ${activity.description}`))
-    .reduce((total, activity) => total + (Number(activity.hours) || 0), 0);
-  const currentCommitments = countedActivities.filter((activity) => activity.status === "active").length;
-
-  const gaps: Record<ReadinessDimension, number> = {
-    academic: clamp(Math.max(courseGap, gpaGap)),
-    clinical: gapFromHours(clinicalHours, 50, 150),
-    research: researchGap,
-    service: gapFromHours(serviceHours, 40, 120),
-    leadership: gapFromHours(leadershipHours, 25, 80),
-    exploration: gapFromHours(explorationHours, 20, 50),
-    mentorship: researchActivities.length > 0 || leadershipHours > 0 ? 0.38 : 0.82,
-    planning: snapshot.basic.applicationCycle && snapshot.basic.graduationDate ? clamp(0.2 + courseGap * 0.35) : 0.72,
-  };
-
-  return {
-    gaps,
-    completedNodeNames: [
-      ...completedCourses.map((course) => course.name),
-      ...countedActivities.filter((activity) => activity.status === "completed").map((activity) => activity.name),
-    ],
-    currentCommitments,
-    researchDepth: { experiences: researchActivities.length, substantialExperiences: substantialResearch },
-  };
+  return deriveApplicantAssessment(snapshot, asOfDate);
 }
+
+export { buildPersonalizedActionNodes };
 
 export function profileToRecommendationProfile(
   snapshot: ApplicantProfileSnapshot,
@@ -191,18 +143,19 @@ export function profileToRecommendationProfile(
   return {
     id: "applicant-profile",
     label: snapshot.basic.major || "Applicant",
-    summary: "Readiness derived from the completed applicant profile.",
+    summary: derived.targetFit.message,
     timeline: snapshot.basic.applicationCycle ? `Application cycle ${snapshot.basic.applicationCycle}` : "Application cycle not set",
     gaps: derived.gaps,
     completedNodeNames: derived.completedNodeNames,
     blockedNodeNames: context.blockedNodeNames ?? [],
     urgency: "normal",
     actionOutcomes: context.actionOutcomes,
-    weeklyHoursAvailable: context.weeklyHoursAvailable,
+    weeklyHoursAvailable: context.weeklyHoursAvailable ?? (Number(snapshot.basic.weeklyHoursAvailable) || undefined),
     currentCommitments: derived.currentCommitments,
     applicationDate: context.applicationDate ?? (cycleYear ? `${cycleYear}-06-01` : undefined),
     asOfDate: context.asOfDate,
     researchDepth: derived.researchDepth,
+    targetTier: derived.targetFit.targetTier,
   };
 }
 
@@ -235,9 +188,14 @@ function outcomeFor(profile: DemoProfile, nodeName: string) {
 }
 
 function dimensionsFor(node: EngineNode): ReadinessDimension[] {
+  const explicit = node.metadata?.readiness_dimension;
+  if (typeof explicit === "string" && ["academic", "testing", "clinical", "research", "service", "leadership", "exploration", "mentorship", "planning"].includes(explicit)) {
+    return [explicit as ReadinessDimension];
+  }
   const text = `${node.name} ${JSON.stringify(node.metadata ?? {})}`.toLowerCase();
   const dimensions = new Set<ReadinessDimension>();
   if (node.type === "course") dimensions.add("academic");
+  if (/mcat|test prep/.test(text)) dimensions.add("testing");
   if (node.type === "professor") { dimensions.add("mentorship"); dimensions.add("planning"); }
   if (node.type === "research_lab" || /research|surf|nih|\breu\b|amgen|laboratory/.test(text)) {
     dimensions.add("research");
@@ -253,15 +211,16 @@ function dimensionsFor(node: EngineNode): ReadinessDimension[] {
 }
 
 function isResearchAcquisition(node: EngineNode) {
-  return (node.type === "research_lab" || node.type === "internship") && dimensionsFor(node).includes("research");
+  return (node.type === "research_lab" || node.type === "internship") && dimensionsFor(node).includes("research") && !node.metadata?.deepen_existing;
 }
 
 function actionVerb(node: EngineNode) {
-  if (node.type === "course") return "Prioritize";
-  if (node.type === "research_lab") return "Join";
-  if (node.type === "internship" || node.type === "scholarship") return "Apply to";
-  if (node.type === "professor") return "Meet with";
-  return "Start";
+  if (node.type === "personalized_action") return "";
+  if (node.type === "course") return "Prioritize ";
+  if (node.type === "research_lab") return "Join ";
+  if (node.type === "internship" || node.type === "scholarship") return "Apply to ";
+  if (node.type === "professor") return "Meet with ";
+  return "Start ";
 }
 
 function weightFor(components: RubricComponent[], key: string) {
@@ -363,6 +322,7 @@ export function rankActions(
           return id !== node.id && completedIds.has(id) && Boolean(alternativeNode && isResearchAcquisition(alternativeNode));
         });
         if (completedComparableAlternative) return null;
+        if ((profile.researchDepth?.substantialExperiences ?? 0) >= 1 && !(namesMatch(node.name, ZUCKERMAN_NAME) && recoveryFromSurf)) return null;
       }
 
       const dimensions = dimensionsFor(node);
@@ -376,11 +336,11 @@ export function rankActions(
         .filter((edge) => edge.relationship_type === "supports")
         .sort((a, b) => (evidenceFraction[b.evidence_class ?? ""] ?? 0) - (evidenceFraction[a.evidence_class ?? ""] ?? 0))[0];
       const isPriorityRecovery = profile.priorityNodeName === node.name;
-      const evidenceClass = isPriorityRecovery ? "Graph prerequisite" : support?.evidence_class ?? "Unclassified";
-      const evidenceStrength = isPriorityRecovery ? 1 : evidenceFraction[support?.evidence_class ?? ""] ?? 0.13;
-      const confidence = isPriorityRecovery ? "high" : support?.confidence ?? "unknown";
+      const evidenceClass = isPriorityRecovery ? "Graph prerequisite" : support?.evidence_class ?? (node.metadata?.personalized ? "Directional" : "Unclassified");
+      const evidenceStrength = isPriorityRecovery ? 1 : support ? evidenceFraction[support.evidence_class ?? ""] ?? 0.3 : node.metadata?.personalized ? 0.68 : 0.13;
+      const confidence = isPriorityRecovery ? "high" : support?.confidence ?? (node.metadata?.personalized ? "directional" : "unknown");
       const metadataText = JSON.stringify(node.metadata ?? {}).toLowerCase();
-      const missionFit = /columbia|morningside|cuems|surf/.test(`${node.name} ${metadataText}`.toLowerCase());
+      const missionFit = /columbia|morningside|cuems|surf/.test(`${node.name} ${metadataText}`.toLowerCase()) || Boolean(node.metadata?.personalized);
 
       const incomingUnlocks = edges.filter((edge) => edge.target_id === node.id && edge.relationship_type === "unlocks");
       const hasUnlockAccess = incomingUnlocks.length === 0 || incomingUnlocks.some((edge) => completedIds.has(edge.source_id));
@@ -395,6 +355,7 @@ export function rankActions(
       const diminishingMultiplier = isResearchAcquisition(node) ? researchMultiplier(profile, completedResearchNodes) : 1;
       const diminishingPenalty = isResearchAcquisition(node) ? (1 - diminishingMultiplier) * 20 : 0;
       const recoveryBonus = namesMatch(node.name, ZUCKERMAN_NAME) && recoveryFromSurf ? 16 : 0;
+      const personalization = Number(node.metadata?.base_priority ?? 0) * 14;
 
       const breakdown = {
         gap_reduction: gap * weightFor(components, "gap_reduction") * diminishingMultiplier,
@@ -403,6 +364,7 @@ export function rankActions(
         mission_relevance: (missionFit ? 0.8 : 0.45) * weightFor(components, "mission_relevance"),
         feasibility: feasibilityFraction * weightFor(components, "feasibility"),
         time_utility: deadline.fraction * weightFor(components, "time_utility"),
+        personalization,
         uncertainty: (1 - evidenceStrength) * weightFor(components, "uncertainty"),
         diminishing_returns: diminishingPenalty,
         recovery_route: recoveryBonus,
@@ -410,13 +372,13 @@ export function rankActions(
 
       let score = breakdown.gap_reduction + breakdown.downstream_value + breakdown.evidence_strength
         + breakdown.mission_relevance + breakdown.feasibility + breakdown.time_utility
-        + breakdown.recovery_route - breakdown.uncertainty - breakdown.diminishing_returns;
-      if (gap < 0.25 && newUnlocks.length === 0) score -= 12;
+        + breakdown.personalization + breakdown.recovery_route - breakdown.uncertainty - breakdown.diminishing_returns;
+      if (gap < 0.25 && newUnlocks.length === 0 && !node.metadata?.personalized) score -= 12;
       score = Math.max(0, Math.min(100, Math.round(score)));
 
       const reasons = [
-        `Addresses the ${addressedGap} gap (${Math.round(gap * 100)}% open).`,
-        newUnlocks.length > 0 ? `Preserves ${newUnlocks.length} new downstream connection${newUnlocks.length === 1 ? "" : "s"}.` : "Adds no new downstream connection.",
+        node.metadata?.personalized && node.description ? node.description : `Addresses the ${addressedGap} gap (${Math.round(gap * 100)}% open).`,
+        newUnlocks.length > 0 ? `Preserves ${newUnlocks.length} new downstream connection${newUnlocks.length === 1 ? "" : "s"}.` : node.metadata?.personalized ? "Tailored to your profile and selected target." : "Adds no new downstream connection.",
         hasUnlockAccess ? "Graph access requirements are satisfied." : "No incoming unlock is complete, so feasibility is reduced.",
       ];
       if (diminishingPenalty > 0) reasons.push(`Research marginal value reduced to ${Math.round(diminishingMultiplier * 100)}% because substantial research already exists.`);
@@ -425,13 +387,15 @@ export function rankActions(
 
       return {
         node,
-        actionLabel: `${actionVerb(node)} ${node.name}`,
+        actionLabel: `${actionVerb(node)}${node.name}`,
         score,
         impact: score >= 70 ? "High" : score >= 50 ? "Moderate" : "Focused",
         addressedGap,
         unlockCount: newUnlocks.length,
         evidenceClass,
         confidence,
+        evidenceType: typeof node.metadata?.evidence_type === "string" ? node.metadata.evidence_type as RankedAction["evidenceType"] : support ? "research" : "heuristic",
+        evidenceNote: typeof node.metadata?.evidence_note === "string" ? node.metadata.evidence_note : "Ranked using the evidence graph plus profile-specific feasibility and gap rules.",
         breakdown: Object.fromEntries(Object.entries(breakdown).map(([key, value]) => [key, Math.round(value)])),
         reasons,
       };

@@ -8,6 +8,7 @@ export const demoProfiles: DemoProfile[] = [
     timeline: "Sophomore · 8 hours available weekly",
     gaps: {
       academic: 0.1,
+      testing: 0.35,
       clinical: 0.1,
       research: 1,
       service: 0.25,
@@ -38,6 +39,7 @@ export const demoProfiles: DemoProfile[] = [
     timeline: "Junior · 6 hours available weekly",
     gaps: {
       academic: 0.1,
+      testing: 0.35,
       clinical: 1,
       research: 0.1,
       service: 0.65,
@@ -63,6 +65,7 @@ export const demoProfiles: DemoProfile[] = [
     timeline: "Sophomore · academic recovery semester",
     gaps: {
       academic: 1,
+      testing: 0.65,
       clinical: 0.15,
       research: 0.2,
       service: 0.2,
@@ -96,6 +99,7 @@ export const demoProfiles: DemoProfile[] = [
     timeline: "Demo date: December 28 · deadline-sensitive",
     gaps: {
       academic: 0.15,
+      testing: 0.2,
       clinical: 0.25,
       research: 0.55,
       service: 0.25,

@@ -15,6 +15,8 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import {
+  buildPersonalizedActionNodes,
+  deriveReadinessGaps,
   profileToRecommendationProfile,
   rankActions,
   type ActionOutcome,
@@ -94,6 +96,7 @@ const statusColors: Record<VisualStatus, string> = {
 
 const gapLabels: Array<{ key: ReadinessDimension; label: string; icon: string }> = [
   { key: "academic", label: "Coursework", icon: "▤" },
+  { key: "testing", label: "MCAT", icon: "◎" },
   { key: "clinical", label: "Clinical", icon: "⌁" },
   { key: "research", label: "Research", icon: "⌕" },
   { key: "service", label: "Service", icon: "♡" },
@@ -107,6 +110,7 @@ const impactLabels: Record<string, string> = {
   mission_relevance: "Fits the medical-school pathway",
   feasibility: "Feasible from your current state",
   time_utility: "Useful in your application timeline",
+  personalization: "Matches your selected goal",
   uncertainty: "Uncertainty penalty",
   diminishing_returns: "Diminishing-returns penalty",
   recovery_route: "Recovery-route priority",
@@ -123,6 +127,12 @@ function namesMatch(first: string, second: string) {
 }
 
 function milestoneForGraphNode(node: GraphNodeRecord): MilestoneId {
+  const explicit = node.metadata?.readiness_dimension;
+  if (explicit === "academic") return "foundation";
+  if (explicit === "testing" || explicit === "planning") return "application";
+  if (explicit === "clinical" || explicit === "service" || explicit === "exploration") return "experience";
+  if (explicit === "research" || explicit === "mentorship") return "depth";
+  if (explicit === "leadership") return "differentiation";
   const text = `${node.name} ${JSON.stringify(node.metadata ?? {})}`.toLowerCase();
   if (node.type === "course") return "foundation";
   if (node.type === "research_lab" || node.type === "internship" || /research|laboratory|\blab\b|surf|publication/.test(text)) return "depth";
@@ -166,6 +176,7 @@ function readinessEvidence(snapshot: ApplicantProfileSnapshot, dimension: Readin
     const completed = snapshot.courses.filter((course) => course.status === "completed").length;
     return `${completed} completed courses and GPA ${snapshot.basic.gpa || "not entered"} are included.`;
   }
+  if (dimension === "testing") return snapshot.basic.mcatScore ? `MCAT ${snapshot.basic.mcatScore} is compared with the selected target tier.` : `No MCAT score is recorded; Trajectory uses the selected tier to set a planning goal.`;
   if (dimension === "planning") return `Application cycle ${snapshot.basic.applicationCycle || "not entered"} and graduation ${snapshot.basic.graduationDate || "not entered"} are included.`;
   const activities = snapshot.activities.filter((activity) => relevant.includes(activity.category) && activity.status !== "planned");
   const hours = activities.reduce((total, activity) => total + (Number(activity.hours) || 0), 0);
@@ -490,6 +501,8 @@ export function GuidedTrajectory({
   }, [launchPhase]);
 
   const baseProfile = useMemo(() => snapshot ? profileToRecommendationProfile(snapshot) : null, [snapshot]);
+  const assessment = useMemo(() => snapshot ? deriveReadinessGaps(snapshot) : null, [snapshot]);
+  const personalizedNodes = useMemo(() => snapshot && assessment ? buildPersonalizedActionNodes(snapshot, assessment) : [], [snapshot, assessment]);
   const profile = useMemo((): DemoProfile | null => baseProfile ? ({
     ...baseProfile,
     completedNodeNames: [...baseProfile.completedNodeNames, ...completedActions],
@@ -500,8 +513,8 @@ export function GuidedTrajectory({
     ],
   }) : null, [baseProfile, completedActions, outcomes]);
   const ranked = useMemo(
-    () => profile ? rankActions(profile, graphNodes, graphEdges, rubricComponents) : [],
-    [profile, graphNodes, graphEdges, rubricComponents]
+    () => profile ? rankActions(profile, [...graphNodes, ...personalizedNodes], graphEdges, rubricComponents) : [],
+    [profile, graphNodes, personalizedNodes, graphEdges, rubricComponents]
   );
   const topAction = ranked[0];
   const guidedGraph = snapshot && profile
@@ -592,6 +605,10 @@ export function GuidedTrajectory({
         <div className="evidence-panel">
           <p className="trajectory-kicker">WHY THIS RECOMMENDATION</p>
           <h1>Evidence and boundaries.</h1>
+          <div className="trajectory-evidence-basis" data-type={topAction.evidenceType ?? "heuristic"}>
+            <span>{(topAction.evidenceType ?? "heuristic").replace("_", " ")} evidence</span>
+            <p>{topAction.evidenceNote}</p>
+          </div>
           <div className="evidence-list">
             {supportingEvidence.length > 0 ? supportingEvidence.map((record) => (
               <article key={record.evidence_id}>
@@ -601,7 +618,7 @@ export function GuidedTrajectory({
                 <small><strong>Limitation:</strong> {record.limitations}</small>
                 <a href={record.source_url} target="_blank" rel="noreferrer">Open source ↗</a>
               </article>
-            )) : <article><h2>No linked atomic claim is available for this edge.</h2><p>Treat the ranking as directional guidance.</p></article>}
+            )) : <article><h2>No peer-reviewed atomic claim is linked to this action.</h2><p>The benchmark or planning basis above is still used directionally and is explicitly separated from research evidence.</p></article>}
           </div>
           <button className="journey-primary" type="button" onClick={() => { recordOutcome(topAction.node.name, "completed"); setView("graph"); }}>Mark complete and recalculate <span>→</span></button>
         </div>
@@ -620,6 +637,11 @@ export function GuidedTrajectory({
       <aside className="guided-readiness">
         <small>READINESS</small>
         <h2>Your profile</h2>
+        {assessment ? <div className="guided-target-fit" data-status={assessment.targetFit.status}>
+          <span>{assessment.targetFit.benchmark.shortLabel} TARGET</span>
+          <strong>{assessment.targetFit.title}</strong>
+          <small>{snapshot.basic.mcatScore ? `MCAT ${snapshot.basic.mcatScore}` : `MCAT goal ${assessment.targetFit.suggestedMcatGoal}+`} · GPA {snapshot.basic.gpa || "not entered"}</small>
+        </div> : null}
         <div className="guided-readiness__list">
           {gapLabels.map(({ key, label, icon }) => {
             const gap = profile.gaps[key];
@@ -690,6 +712,14 @@ export function GuidedTrajectory({
                     <strong>{readinessLabel(profile.gaps[selectedMilestoneDefinition.gap])}</strong>
                     <em>{Math.round((1 - profile.gaps[selectedMilestoneDefinition.gap]) * 100)}% ready</em>
                   </div>
+                  {selectedMilestone === "foundation" && assessment ? <div className="guided-course-audit">
+                    <strong>{assessment.coursework.standardComplete ? "Standard prerequisites substantially complete" : `${assessment.coursework.missingStandard.length} standard area${assessment.coursework.missingStandard.length === 1 ? "" : "s"} still incomplete`}</strong>
+                    <p>{assessment.coursework.onlyRecommendedOrLimitedManyRemain ? "Only recommended courses or a limited number of school-dependent requirements remain. This section is treated as near-complete." : assessment.coursework.missingStandard.join(", ")}</p>
+                    {assessment.coursework.labSubjectsToVerify.length > 0 ? <small>Verify transcript/lab treatment with individual schools: {assessment.coursework.labSubjectsToVerify.join(", ")}.</small> : null}
+                  </div> : null}
+                  {selectedMilestone === "application" && assessment ? <div className="guided-course-audit" data-fit={assessment.targetFit.status}>
+                    <strong>{assessment.targetFit.title}</strong><p>{assessment.targetFit.message}</p>
+                  </div> : null}
                   <section>
                     <span>{profile.gaps[selectedMilestoneDefinition.gap] <= 0.28 ? "Section assessment" : "Potential ways to improve"}</span>
                     {profile.gaps[selectedMilestoneDefinition.gap] <= 0.28 ? (
@@ -742,6 +772,7 @@ export function GuidedTrajectory({
         <small>HIGHEST IMPACT THIS WEEK</small>
         {topAction ? <>
           <span className="guided-impact__icon">★</span>
+          <span className="guided-impact__evidence">{(topAction.evidenceType ?? "heuristic").replace("_", " ")} basis</span>
           <h2>{topAction.actionLabel}</h2>
           <div className="guided-impact__metrics"><span>◷ {estimatedHours(topAction)}</span><span>↗ {topAction.impact} impact</span></div>
           <h3>Why this matters</h3>

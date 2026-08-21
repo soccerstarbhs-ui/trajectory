@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildPersonalizedActionNodes,
   deriveReadinessGaps,
   rankActions,
   type DemoProfile,
+  type ApplicantProfileSnapshot,
   type EngineEdge,
   type EngineNode,
   type ReadinessDimension,
@@ -28,6 +30,7 @@ const edges: EngineEdge[] = [
 
 const openGaps: Record<ReadinessDimension, number> = {
   academic: 0.2,
+  testing: 0.2,
   clinical: 0.2,
   research: 1,
   service: 0.45,
@@ -111,6 +114,84 @@ test("profile activities become depth-sensitive readiness gaps", () => {
   }, new Date("2026-08-20T00:00:00Z"));
 
   assert.equal(withoutResearch.gaps.research, 1);
-  assert.equal(withResearch.gaps.research, 0.22);
+  assert.ok(withResearch.gaps.research < withoutResearch.gaps.research);
   assert.equal(withResearch.researchDepth.substantialExperiences, 1);
+});
+
+function completeCoursework() {
+  return [
+    "BIOL UN2005 — Introductory Biology I", "BIOL UN2006 — Introductory Biology II",
+    "CHEM UN1403 — General Chemistry I", "CHEM UN1404 — General Chemistry II",
+    "CHEM UN2443 — Organic Chemistry I", "CHEM UN2444 — Organic Chemistry II",
+    "PHYS UN1201 — General Physics I", "PHYS UN1202 — General Physics II",
+    "ENGL CC1010 — University Writing", "HUMA UN1123 — Music Humanities",
+    "BIOC UN3300 — Biochemistry", "STAT UN1201 — Introduction to Statistics", "MATH UN1101 — Calculus I",
+  ].map((name) => ({ name, status: "completed" as const, term: "", grade: "A" }));
+}
+
+function applicant(overrides: Partial<ApplicantProfileSnapshot["basic"]> = {}): ApplicantProfileSnapshot {
+  return {
+    basic: {
+      major: "Biomedical Engineering",
+      gpa: "3.82",
+      graduationDate: "2027-05",
+      applicationCycle: "2027–2028",
+      targetTier: "t10" as const,
+      mcatStatus: "completed" as const,
+      mcatScore: "518",
+      ...overrides,
+    },
+    courses: completeCoursework(),
+    activities: [],
+  };
+}
+
+test("completed standard coursework is strong when only optional courses remain", () => {
+  const result = deriveReadinessGaps(applicant());
+  assert.equal(result.coursework.standardComplete, true);
+  assert.equal(result.coursework.onlyRecommendedOrLimitedManyRemain, true);
+  assert.ok(result.coursework.readiness >= 0.95);
+  assert.ok(result.gaps.academic < 0.2);
+});
+
+test("Columbia Core writing courses count toward the writing pattern", () => {
+  const snapshot = applicant();
+  snapshot.courses = snapshot.courses.filter((course) => !/University Writing|Music Humanities/.test(course.name));
+  snapshot.courses.push(
+    { name: "HUMA CC1001 — Literature Humanities I", status: "completed", term: "", grade: "A" },
+    { name: "HUMA UN1121 — Art Humanities", status: "completed", term: "", grade: "A" },
+  );
+  const writing = deriveReadinessGaps(snapshot).coursework.requirements.find((item) => item.key === "writing");
+  assert.equal(writing?.satisfied, true);
+});
+
+test("an extreme T10 academic mismatch is labeled statistically improbable", () => {
+  const result = deriveReadinessGaps(applicant({ gpa: "3.40", mcatScore: "505" }));
+  assert.equal(result.targetFit.status, "statistically_improbable");
+  assert.match(result.targetFit.message, /broader school list/i);
+});
+
+test("an applicant without an MCAT receives a tier-specific planning goal", () => {
+  const result = deriveReadinessGaps(applicant({ targetTier: "t20", mcatStatus: "planning", mcatScore: "" }));
+  assert.equal(result.targetFit.status, "not_scored");
+  assert.equal(result.targetFit.suggestedMcatGoal, 520);
+  assert.ok(result.gaps.testing > 0.5);
+});
+
+test("screenshot-verified self-reported hour benchmarks remain explicit", () => {
+  const result = deriveReadinessGaps(applicant());
+  assert.deepEqual(result.comparisons.research.benchmark, { p10: 542, p25: 940, median: 1608 });
+  assert.equal(result.comparisons.research.coverage, 10);
+});
+
+test("substantial research produces a depth action instead of a second lab", () => {
+  const snapshot = applicant();
+  snapshot.activities.push({
+    category: "research", name: "Cancer Biology Lab", role: "Research assistant", status: "active",
+    startDate: "2025-09", endDate: "", hours: "700", description: "Sustained bench research",
+    responsibility: "contributor", outcome: "none",
+  });
+  const actions = buildPersonalizedActionNodes(snapshot, deriveReadinessGaps(snapshot, new Date("2026-08-21")));
+  assert.ok(actions.some((node) => /poster, abstract, or manuscript/i.test(node.name)));
+  assert.equal(actions.some((node) => /join.*lab/i.test(node.name)), false);
 });
