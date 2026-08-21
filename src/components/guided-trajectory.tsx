@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -273,11 +273,38 @@ function RocketGraphic({ moving = false }: { moving?: boolean }) {
   );
 }
 
-function FlightRocket() {
+function FlightRocket({ onComplete }: { onComplete: () => void }) {
+  const motionRef = useRef<SVGAnimationElement | null>(null);
+
+  useEffect(() => {
+    const motion = motionRef.current;
+    if (!motion) return;
+    let completed = false;
+    const finish = () => {
+      if (completed) return;
+      completed = true;
+      onComplete();
+    };
+    const restartFrame = window.requestAnimationFrame(() => {
+      motion.ownerSVGElement?.setCurrentTime(0);
+      motion.beginElement();
+    });
+    motion.addEventListener("endEvent", finish);
+    const fallback = window.setTimeout(finish, 4200);
+    return () => {
+      completed = true;
+      window.cancelAnimationFrame(restartFrame);
+      window.clearTimeout(fallback);
+      motion.removeEventListener("endEvent", finish);
+    };
+  }, [onComplete]);
+
   return (
     <svg className="guided-flight-svg" viewBox="0 0 1600 830" preserveAspectRatio="none" aria-hidden="true">
       <g>
         <animateMotion
+          ref={motionRef}
+          begin="indefinite"
           dur="3.85s"
           path="M 130 720 C 260 510 390 400 560 400 C 735 400 900 425 1000 335 C 1090 285 1080 165 970 170 C 860 175 865 320 965 335 C 1065 350 1070 210 1135 180 C 1190 155 1240 185 1294 210"
           keyPoints="0;1"
@@ -454,11 +481,11 @@ export function GuidedTrajectory({
     return () => window.clearTimeout(timer);
   }, []);
 
+  const completeLaunch = useCallback(() => setLaunchPhase("celebrating"), []);
+
   useEffect(() => {
-    if (launchPhase === "idle") return;
-    const timer = window.setTimeout(() => {
-      setLaunchPhase(launchPhase === "launching" ? "celebrating" : "idle");
-    }, launchPhase === "launching" ? 3850 : 1250);
+    if (launchPhase !== "celebrating") return;
+    const timer = window.setTimeout(() => setLaunchPhase("idle"), 1250);
     return () => window.clearTimeout(timer);
   }, [launchPhase]);
 
@@ -641,7 +668,7 @@ export function GuidedTrajectory({
 
           {launchPhase === "launching" ? (
             <div className="guided-flight-path" key={launchCount} aria-hidden="true">
-              <FlightRocket />
+              <FlightRocket onComplete={completeLaunch} />
             </div>
           ) : null}
           {launchPhase === "celebrating" ? (
