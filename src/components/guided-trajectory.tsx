@@ -116,6 +116,21 @@ const impactLabels: Record<string, string> = {
   recovery_route: "Recovery-route priority",
 };
 
+type EvidenceType = NonNullable<RankedAction["evidenceType"]>;
+
+const evidenceLabels: Record<EvidenceType, { badge: string; heading: string }> = {
+  school_data: { badge: "Admissions benchmark", heading: "Admissions benchmark evidence" },
+  self_reported: { badge: "Self-reported data", heading: "Self-reported applicant evidence" },
+  research: { badge: "Research evidence", heading: "Research evidence" },
+  institutional: { badge: "Institutional guidance", heading: "Institutional guidance" },
+  heuristic: { badge: "Planning methodology", heading: "Planning methodology" },
+  mixed: { badge: "Combined evidence", heading: "Combined evidence" },
+};
+
+function evidenceLabel(type: RankedAction["evidenceType"], context: "badge" | "heading") {
+  return evidenceLabels[type ?? "heuristic"][context];
+}
+
 function normalize(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
@@ -606,7 +621,7 @@ export function GuidedTrajectory({
           <p className="trajectory-kicker">WHY THIS RECOMMENDATION</p>
           <h1>Evidence and boundaries.</h1>
           <div className="trajectory-evidence-basis" data-type={topAction.evidenceType ?? "heuristic"}>
-            <span>{(topAction.evidenceType ?? "heuristic").replace("_", " ")} evidence</span>
+            <span>{evidenceLabel(topAction.evidenceType, "heading")}</span>
             <p>{topAction.evidenceNote}</p>
           </div>
           <div className="evidence-list">
@@ -772,7 +787,7 @@ export function GuidedTrajectory({
         <small>HIGHEST IMPACT THIS WEEK</small>
         {topAction ? <>
           <span className="guided-impact__icon">★</span>
-          <span className="guided-impact__evidence">{(topAction.evidenceType ?? "heuristic").replace("_", " ")} basis</span>
+          <span className="guided-impact__evidence">{evidenceLabel(topAction.evidenceType, "badge")}</span>
           <h2>{topAction.actionLabel}</h2>
           <div className="guided-impact__metrics"><span>◷ {estimatedHours(topAction)}</span><span>↗ {topAction.impact} impact</span></div>
           <h3>Why this matters</h3>

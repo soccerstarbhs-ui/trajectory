@@ -178,7 +178,7 @@ test("an applicant without an MCAT receives a tier-specific planning goal", () =
   assert.ok(result.gaps.testing > 0.5);
 });
 
-test("screenshot-verified self-reported hour benchmarks remain explicit", () => {
+test("self-reported hour benchmarks remain explicit", () => {
   const result = deriveReadinessGaps(applicant());
   assert.deepEqual(result.comparisons.research.benchmark, { p10: 542, p25: 940, median: 1608 });
   assert.equal(result.comparisons.research.coverage, 10);

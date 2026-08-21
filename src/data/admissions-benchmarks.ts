@@ -157,13 +157,13 @@ export const admissionsBenchmarks: Record<TargetTier, AdmissionsBenchmark> = {
 
 export const benchmarkSources = {
   academic: {
-    label: "Structured school data",
+    label: "Self-reported admissions data",
     url: "https://med.admit.org/school-rankings",
-    note: "School-level GPA and MCAT percentile distributions; 98 of the Top 100 pages were available in the supplied 2026-08-21 snapshot.",
+    note: "Aggregated self-reported GPA and MCAT ranges for medical-school applicants. These benchmarks support directional planning and should not be interpreted as admissions cutoffs or acceptance predictions.",
   },
   activities: {
     label: "Self-reported applicant data",
     url: "https://docs.google.com/spreadsheets/d/1nbLZ92IvJYAMZgCmg1akG4hvccU8-KsA3vN8UzbO8h8/htmlview",
-    note: "Clinical, nonclinical-service, research-hour, and publication summaries are selection-biased and have uneven coverage. They are directional benchmarks, not requirements or causal estimates.",
+    note: "Aggregated self-reported clinical, service, research, and publication data. These figures provide directional context only; reporting practices vary, and the values are not requirements or causal estimates.",
   },
 } as const;

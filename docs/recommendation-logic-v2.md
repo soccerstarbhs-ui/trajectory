@@ -6,12 +6,12 @@ Trajectory ranks practical next actions. It does **not** calculate an acceptance
 
 The engine combines:
 
-1. school-level GPA and MCAT distributions;
+1. aggregated self-reported GPA and MCAT distributions;
 2. self-reported clinical, nonclinical-service, research-hour, publication, and interview-record summaries;
 3. existing linked research and institutional evidence;
 4. deterministic planning rules for timing, feasibility, redundancy, quality, and missing information.
 
-The interface labels these bases separately as school data, self-reported evidence, research evidence, institutional requirements, mixed evidence, or a planning heuristic.
+The interface distinguishes self-reported applicant evidence, research evidence, institutional guidance, combined evidence, and planning methodology.
 
 ## Target groups
 
@@ -27,7 +27,7 @@ The selected goal is cumulative: Top 10 uses ranks 1–10, Top 20 uses 1–20, T
 
 \*These are school-interview records, not guaranteed unique applicants.
 
-Academic percentiles cover 98 of 100 school pages in the supplied snapshot. Screenshot values were used to restore activity cells that were blank or shifted in the workbook extraction. Missing data are never converted to zero.
+All applicant-reported benchmarks are used directionally. Missing values are never converted to zero, and none of the reported percentiles are treated as admissions requirements or guarantees.
 
 ## Academic target fit
 
@@ -65,7 +65,7 @@ Columbia writing recognition includes University Writing, Literature Humanities 
 
 ## Experience benchmarks and quality
 
-Hours are compared with the averaged self-reported 10th, 25th, and 50th percentiles for the selected target. The user is shown the coverage count and the self-reported-data warning.
+Hours are compared with the averaged self-reported 10th, 25th, and 50th percentiles for the selected target. The interface clearly identifies these figures as directional self-reported context rather than requirements.
 
 Hours contribute 68% of an experience-readiness value. Quality contributes 32% and uses:
 

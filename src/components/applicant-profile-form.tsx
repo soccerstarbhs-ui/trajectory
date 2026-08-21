@@ -473,7 +473,7 @@ export function ApplicantProfileForm() {
               </div>
               {(basic.mcatStatus === "completed" || basic.mcatStatus === "retaking") ? <label className="trajectory-goal-modal__score"><span>Current MCAT score</span><input type="number" min="472" max="528" value={basic.mcatScore} onChange={(event) => updateBasic("mcatScore", event.target.value)} placeholder="515" /></label> : null}
               {basic.mcatStatus === "scheduled" ? <label className="trajectory-goal-modal__score"><span>Scheduled test date</span><input type="date" value={basic.mcatDate} onChange={(event) => updateBasic("mcatDate", event.target.value)} /></label> : null}
-              <div className="trajectory-goal-modal__benchmark"><small>PLANNING TARGET</small><strong>{admissionsBenchmarks[basic.targetTier || "any"].suggestedMcatGoal}+</strong><span>Based on the supplied school-level distribution. Not a cutoff or prediction.</span></div>
+              <div className="trajectory-goal-modal__benchmark"><small>PLANNING TARGET</small><strong>{admissionsBenchmarks[basic.targetTier || "any"].suggestedMcatGoal}+</strong><span>Informed by aggregated self-reported admissions data. Not a cutoff or acceptance prediction.</span></div>
               {goalError ? <em role="alert">{goalError}</em> : null}
               <button className="trajectory-goal-modal__continue" type="button" onClick={completeGoalSetup}>Build my profile <b>→</b></button>
             </>}
