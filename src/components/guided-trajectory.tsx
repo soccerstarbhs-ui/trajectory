@@ -174,6 +174,40 @@ function readinessEvidence(snapshot: ApplicantProfileSnapshot, dimension: Readin
 
 function GuidedNodeCard({ data, selected }: NodeProps<GuidedNode>) {
   const color = statusColors[data.status];
+
+  if (data.kind === "current") {
+    return (
+      <div className="guided-node guided-rocket-node" data-kind="current" data-status={data.status}>
+        <span className="guided-rocket-node__hint">Click to launch</span>
+        <RocketGraphic />
+        <Handle type="source" position={Position.Right} />
+      </div>
+    );
+  }
+
+  if (data.kind === "goal") {
+    return (
+      <div
+        className="guided-node guided-goal-node"
+        data-kind="goal"
+        data-status={data.status}
+        data-selected={selected}
+        style={{ "--guided-accent": color } as React.CSSProperties}
+      >
+        <Handle type="target" position={Position.Left} />
+        <div className="guided-goal-orbit guided-goal-orbit--one"><i /></div>
+        <div className="guided-goal-orbit guided-goal-orbit--two"><i /></div>
+        <div className="guided-goal-orbit guided-goal-orbit--three"><i /></div>
+        <div className="guided-goal-planet">
+          <svg viewBox="0 0 42 42" aria-hidden="true">
+            <path d="M10 16h22M13 16v16m5-16v16m6-16v16m5-16v16M9 32h24M21 8l13 7H8l13-7Z" />
+          </svg>
+        </div>
+        <span className="guided-goal-node__label"><small>DESTINATION</small><strong>Medical School</strong></span>
+      </div>
+    );
+  }
+
   return (
     <div
       className="guided-node"
@@ -182,15 +216,29 @@ function GuidedNodeCard({ data, selected }: NodeProps<GuidedNode>) {
       data-selected={selected}
       style={{ "--guided-accent": color } as React.CSSProperties}
     >
-      {data.kind !== "current" ? <Handle type="target" position={Position.Left} /> : null}
+      <Handle type="target" position={Position.Left} />
       <span className="guided-node__eyebrow">
         <i>{data.eyebrow}</i>
         {data.kind !== "collapse" ? <b>{statusLabels[data.status]}</b> : null}
       </span>
       <strong>{data.title}</strong>
       {data.detail ? <small>{data.detail}</small> : null}
-      {data.kind !== "goal" && data.kind !== "collapse" ? <Handle type="source" position={Position.Right} /> : null}
+      {data.kind !== "collapse" ? <Handle type="source" position={Position.Right} /> : null}
     </div>
+  );
+}
+
+function RocketGraphic({ moving = false }: { moving?: boolean }) {
+  return (
+    <span className="guided-rocket" data-moving={moving} aria-hidden="true">
+      <svg viewBox="0 0 72 108">
+        <path className="guided-rocket__body" d="M36 5C51 18 57 36 54 62L43 76H29L18 62C15 36 21 18 36 5Z" />
+        <path className="guided-rocket__window" d="M36 24a9 9 0 1 1 0 18 9 9 0 0 1 0-18Z" />
+        <path className="guided-rocket__fin" d="M19 51 7 72l21-8m25-13 12 21-21-8" />
+        <path className="guided-rocket__line" d="M29 76h14" />
+      </svg>
+      <i className="guided-rocket__flame" />
+    </span>
   );
 }
 
@@ -246,9 +294,9 @@ function buildGuidedGraph({
       position: { x: -95, y: 675 },
       data: {
         kind: "current",
-        eyebrow: "You are here",
-        title: "Current position",
-        detail: `${profileItems.filter((item) => item.status === "active").length} active · ${profileItems.filter((item) => item.status === "completed").length} completed`,
+        eyebrow: "Launch",
+        title: "Rocket",
+        detail: "Decorative trajectory preview",
         status: "active",
       },
     },
@@ -283,7 +331,8 @@ function buildGuidedGraph({
       type: "bezier",
       animated: status === "active" || status === "recommended",
       markerEnd: { type: MarkerType.ArrowClosed },
-      style: { stroke: statusColors[status], strokeWidth: status === "recommended" ? 3 : 2 },
+      className: "guided-spine-edge",
+      style: { stroke: "#5ce0b5", strokeWidth: status === "recommended" ? 3.4 : 2.7 },
     });
     priorId = `milestone-${milestone.id}`;
 
@@ -358,6 +407,7 @@ function buildGuidedGraph({
         target: nodeId,
         type: "smoothstep",
         animated: item.status === "active" || item.status === "recommended",
+        className: "guided-branch-edge",
         style: { stroke: statusColors[item.status], strokeWidth: item.status === "recommended" ? 2 : 1.2, opacity: 0.75 },
       });
     });
@@ -400,7 +450,8 @@ function buildGuidedGraph({
     type: "bezier",
     animated: true,
     markerEnd: { type: MarkerType.ArrowClosed },
-    style: { stroke: statusColors.goal, strokeWidth: 2.5 },
+    className: "guided-spine-edge guided-spine-edge--goal",
+    style: { stroke: statusColors.goal, strokeWidth: 3 },
   });
 
   return { nodes, edges };
@@ -428,6 +479,8 @@ export function GuidedTrajectory({
   const [outcomes, setOutcomes] = useState<Record<string, ActionOutcome>>({});
   const [view, setView] = useState<"graph" | "recommendation" | "evidence">("graph");
   const [stateMessage, setStateMessage] = useState("");
+  const [launchPhase, setLaunchPhase] = useState<"idle" | "launching" | "celebrating">("idle");
+  const [launchCount, setLaunchCount] = useState(0);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -442,6 +495,14 @@ export function GuidedTrajectory({
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (launchPhase === "idle") return;
+    const timer = window.setTimeout(() => {
+      setLaunchPhase(launchPhase === "launching" ? "celebrating" : "idle");
+    }, launchPhase === "launching" ? 2300 : 1250);
+    return () => window.clearTimeout(timer);
+  }, [launchPhase]);
 
   const baseProfile = useMemo(() => snapshot ? profileToRecommendationProfile(snapshot) : null, [snapshot]);
   const profile = useMemo((): DemoProfile | null => baseProfile ? ({
@@ -569,7 +630,7 @@ export function GuidedTrajectory({
     </header>
     {stateMessage ? <p className="guided-state-message" role="status">{stateMessage}</p> : null}
 
-    <section className="guided-workspace">
+    <section className="guided-workspace" data-launch-phase={launchPhase}>
       <aside className="guided-readiness">
         <small>READINESS</small>
         <h2>Your profile</h2>
@@ -589,7 +650,6 @@ export function GuidedTrajectory({
       </aside>
 
       <div className="guided-canvas-shell">
-        <div className="guided-canvas__topline"><span>MEDICAL SCHOOL PATHWAY</span><span>CLICK ANY NODE FOR DETAILS · PAN AND ZOOM</span></div>
         <div className="guided-canvas">
           <ReactFlow
             nodes={guidedGraph.nodes}
@@ -604,7 +664,13 @@ export function GuidedTrajectory({
             deleteKeyCode={null}
             onNodeClick={(_, node) => {
               const guided = node as GuidedNode;
-              if (guided.data.kind === "collapse") toggleMilestone(guided.data.milestone);
+              if (guided.data.kind === "current") {
+                if (launchPhase === "idle") {
+                  setLaunchCount((count) => count + 1);
+                  setLaunchPhase("launching");
+                  setSelectedNode(null);
+                }
+              } else if (guided.data.kind === "collapse") toggleMilestone(guided.data.milestone);
               else setSelectedNode(guided);
             }}
           >
@@ -612,20 +678,23 @@ export function GuidedTrajectory({
             <Controls showInteractive={false} />
           </ReactFlow>
 
+          {launchPhase === "launching" ? (
+            <div className="guided-flight-path" key={launchCount} aria-hidden="true">
+              <RocketGraphic moving />
+            </div>
+          ) : null}
+          {launchPhase === "celebrating" ? (
+            <div className="guided-celebration" aria-hidden="true">
+              {Array.from({ length: 16 }, (_, index) => <i key={index} style={{ "--confetti-index": index } as React.CSSProperties} />)}
+              <strong>TRAJECTORY COMPLETE</strong>
+            </div>
+          ) : null}
+
           {selectedNode ? (
             <aside className="guided-node-panel">
               <button type="button" aria-label="Close details" onClick={() => setSelectedNode(null)}>×</button>
               <small>{selectedNode.data.eyebrow} · {statusLabels[selectedNode.data.status]}</small>
               <h2>{selectedNode.data.title}</h2><p>{selectedNode.data.detail}</p>
-              {selectedNode.data.kind === "current" ? (
-                <div className="guided-current-summary">
-                  <span>Currently active</span>
-                  {buildProfileItems(snapshot).filter((item) => item.status === "active").map((item) => <strong key={item.id}>{item.name}</strong>)}
-                  <span>Completed</span>
-                  {buildProfileItems(snapshot).filter((item) => item.status === "completed").slice(0, 8).map((item) => <strong key={item.id}>{item.name}</strong>)}
-                  {buildProfileItems(snapshot).filter((item) => item.status === "completed").length > 8 ? <em>+{buildProfileItems(snapshot).filter((item) => item.status === "completed").length - 8} more in your profile</em> : null}
-                </div>
-              ) : null}
               {selectedNode.data.kind === "goal" ? (
                 <div className="guided-goal-summary">
                   <span>Application cycle</span><strong>{snapshot.basic.applicationCycle}</strong>
