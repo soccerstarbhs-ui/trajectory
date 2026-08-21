@@ -278,45 +278,21 @@ function FlightRocket() {
     <svg className="guided-flight-svg" viewBox="0 0 1600 830" preserveAspectRatio="none" aria-hidden="true">
       <g>
         <animateMotion
-          dur="3.55s"
-          path="M 130 720 C 260 510 390 400 560 400 C 735 400 900 425 1000 335 C 1070 270 1015 180 960 190 C 890 204 885 310 970 325 C 1085 345 1160 205 1130 112 C 1110 52 1165 24 1235 40 C 1270 48 1290 55 1294 60"
+          dur="3.85s"
+          path="M 130 720 C 260 510 390 400 560 400 C 735 400 900 425 1000 335 C 1090 285 1080 165 970 170 C 860 175 865 320 965 335 C 1065 350 1070 210 1135 180 C 1190 155 1240 185 1294 210"
           keyPoints="0;1"
           keyTimes="0;1"
-          keySplines=".2 .62 .22 1"
+          keySplines=".26 .08 .24 1"
           calcMode="spline"
-          rotate="0"
+          rotate="auto"
           fill="freeze"
         />
-        <g>
-          <animateTransform
-            attributeName="transform"
-            type="translate"
-            begin="3.85s"
-            dur="0.9s"
-            from="0 0"
-            to="0 38"
-            keySplines=".42 0 .58 1"
-            calcMode="spline"
-            fill="freeze"
-          />
-          <g className="guided-flight-heading">
-            <animateTransform
-              attributeName="transform"
-              type="rotate"
-              dur="3.55s"
-              values="38;70;92;45;-40;-130;-220;-300;-338;-360"
-              keyTimes="0;.12;.28;.43;.53;.62;.71;.79;.9;1"
-              calcMode="linear"
-              fill="freeze"
-            />
-            <g transform="translate(-36 -54)">
-              <path className="guided-rocket__body" d="M36 5C51 18 57 36 54 62L43 76H29L18 62C15 36 21 18 36 5Z" />
-              <path className="guided-rocket__window" d="M36 24a9 9 0 1 1 0 18 9 9 0 0 1 0-18Z" />
-              <path className="guided-rocket__fin" d="M19 51 7 72l21-8m25-13 12 21-21-8" />
-              <path className="guided-rocket__line" d="M29 76h14" />
-              <path className="guided-flight-flame" d="M29 77 Q36 112 43 77 Q36 89 29 77Z" />
-            </g>
-          </g>
+        <g transform="rotate(90) translate(-36 -54)">
+          <path className="guided-rocket__body" d="M36 5C51 18 57 36 54 62L43 76H29L18 62C15 36 21 18 36 5Z" />
+          <path className="guided-rocket__window" d="M36 24a9 9 0 1 1 0 18 9 9 0 0 1 0-18Z" />
+          <path className="guided-rocket__fin" d="M19 51 7 72l21-8m25-13 12 21-21-8" />
+          <path className="guided-rocket__line" d="M29 76h14" />
+          <path className="guided-flight-flame" d="M29 77 Q36 112 43 77 Q36 89 29 77Z" />
         </g>
       </g>
     </svg>
@@ -482,7 +458,7 @@ export function GuidedTrajectory({
     if (launchPhase === "idle") return;
     const timer = window.setTimeout(() => {
       setLaunchPhase(launchPhase === "launching" ? "celebrating" : "idle");
-    }, launchPhase === "launching" ? 4750 : 1250);
+    }, launchPhase === "launching" ? 3850 : 1250);
     return () => window.clearTimeout(timer);
   }, [launchPhase]);
 
