@@ -2300,8 +2300,9 @@ body {
   display: grid;
   place-items: center;
   padding: clamp(1rem, 4vw, 3rem);
-  background: rgba(2, 10, 17, 0.78);
-  backdrop-filter: blur(14px);
+  background:
+    radial-gradient(circle at 50% 42%, rgba(26, 74, 75, 0.18), transparent 34rem),
+    rgba(2, 10, 17, 0.88);
   animation: guided-advisor-backdrop 180ms ease both;
 }
 .guided-advisor-modal {

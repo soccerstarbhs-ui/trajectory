@@ -563,9 +563,12 @@ export function GuidedTrajectory({
   );
   const topAction = ranked[0];
   const alternativeAction = ranked[1];
-  const guidedGraph = snapshot && profile
-    ? buildGuidedGraph({ snapshot, profile, ranked })
-    : { nodes: [] as GuidedNode[], edges: [] as Edge[] };
+  const guidedGraph = useMemo(
+    () => snapshot && profile
+      ? buildGuidedGraph({ snapshot, profile, ranked })
+      : { nodes: [] as GuidedNode[], edges: [] as Edge[] },
+    [snapshot, profile, ranked]
+  );
   const selectedMilestone = selectedNode?.data.kind === "milestone" ? selectedNode.data.milestone : undefined;
   const selectedMilestoneDefinition = milestoneDefinitions.find((milestone) => milestone.id === selectedMilestone);
   const selectedMilestoneItems = selectedMilestone && snapshot
