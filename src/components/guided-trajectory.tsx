@@ -117,6 +117,13 @@ const impactLabels: Record<string, string> = {
 };
 
 type EvidenceType = NonNullable<RankedAction["evidenceType"]>;
+type AdvisorQuestion = "why" | "month_plan" | "alternative";
+
+const advisorPrompts: Array<{ id: AdvisorQuestion; label: string }> = [
+  { id: "why", label: "Why is this my highest-impact focus?" },
+  { id: "month_plan", label: "Build my plan for this month" },
+  { id: "alternative", label: "What if I choose the alternative?" },
+];
 
 const evidenceLabels: Record<EvidenceType, { badge: string; heading: string }> = {
   school_data: { badge: "Admissions benchmark", heading: "Admissions benchmark evidence" },
@@ -492,6 +499,12 @@ export function GuidedTrajectory({
   const [launchPhase, setLaunchPhase] = useState<"idle" | "launching" | "celebrating">("idle");
   const [launchCount, setLaunchCount] = useState(0);
   const [showAllMilestoneItems, setShowAllMilestoneItems] = useState(false);
+  const [advisorOpen, setAdvisorOpen] = useState(false);
+  const [advisorQuestion, setAdvisorQuestion] = useState<AdvisorQuestion | null>(null);
+  const [advisorResponse, setAdvisorResponse] = useState("");
+  const [advisorError, setAdvisorError] = useState("");
+  const [advisorLoading, setAdvisorLoading] = useState(false);
+  const advisorAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -515,6 +528,8 @@ export function GuidedTrajectory({
     return () => window.clearTimeout(timer);
   }, [launchPhase]);
 
+  useEffect(() => () => advisorAbortRef.current?.abort(), []);
+
   const baseProfile = useMemo(() => snapshot ? profileToRecommendationProfile(snapshot) : null, [snapshot]);
   const assessment = useMemo(() => snapshot ? deriveReadinessGaps(snapshot) : null, [snapshot]);
   const personalizedNodes = useMemo(() => snapshot && assessment ? buildPersonalizedActionNodes(snapshot, assessment) : [], [snapshot, assessment]);
@@ -532,6 +547,7 @@ export function GuidedTrajectory({
     [profile, graphNodes, personalizedNodes, graphEdges, rubricComponents]
   );
   const topAction = ranked[0];
+  const alternativeAction = ranked[1];
   const guidedGraph = snapshot && profile
     ? buildGuidedGraph({ snapshot, profile, ranked })
     : { nodes: [] as GuidedNode[], edges: [] as Edge[] };
@@ -562,6 +578,13 @@ export function GuidedTrajectory({
   );
 
   function recordOutcome(actionName: string, outcome: ActionOutcome | null) {
+    advisorAbortRef.current?.abort();
+    advisorAbortRef.current = null;
+    setAdvisorOpen(false);
+    setAdvisorQuestion(null);
+    setAdvisorResponse("");
+    setAdvisorError("");
+    setAdvisorLoading(false);
     setOutcomes((current) => {
       const next = { ...current };
       if (outcome) next[actionName] = outcome;
@@ -575,6 +598,100 @@ export function GuidedTrajectory({
       ? `${actionName} marked ${outcome}. Your route has been recalculated.`
       : `${actionName} returned to consideration.`);
     setSelectedNode(null);
+  }
+
+  async function askTrajectory(question: AdvisorQuestion) {
+    if (!topAction || !assessment || !snapshot || !profile) return;
+
+    advisorAbortRef.current?.abort();
+    const controller = new AbortController();
+    advisorAbortRef.current = controller;
+    setAdvisorOpen(true);
+    setAdvisorQuestion(question);
+    setAdvisorResponse("");
+    setAdvisorError("");
+    setAdvisorLoading(true);
+
+    try {
+      const response = await fetch("/api/advisor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          question,
+          profile: {
+            target: assessment.targetFit.benchmark.shortLabel,
+            targetFit: assessment.targetFit.message,
+            major: snapshot.basic.major,
+            gpa: snapshot.basic.gpa,
+            mcat: snapshot.basic.mcatScore ? `Score ${snapshot.basic.mcatScore}` : `Goal ${assessment.targetFit.suggestedMcatGoal}+; status ${snapshot.basic.mcatStatus || "not recorded"}`,
+            applicationCycle: snapshot.basic.applicationCycle,
+            weeklyHoursAvailable: snapshot.basic.weeklyHoursAvailable,
+            readiness: Object.fromEntries(Object.entries(profile.gaps).map(([key, gap]) => [key, Math.round((1 - gap) * 100)])),
+            coursework: {
+              standardReadinessPercent: Math.round(assessment.coursework.readiness * 100),
+              missingStandard: assessment.coursework.missingStandard,
+              schoolDependentToVerify: assessment.coursework.missingMany,
+            },
+            experienceHours: {
+              clinical: assessment.comparisons.clinical.hours,
+              service: assessment.comparisons.service.hours,
+              research: assessment.comparisons.research.hours,
+            },
+          },
+          recommendation: {
+            action: topAction.actionLabel,
+            impact: topAction.impact,
+            addressedGap: topAction.addressedGap,
+            estimatedCommitment: estimatedHours(topAction),
+            reasons: topAction.reasons,
+            evidenceType: evidenceLabel(topAction.evidenceType, "badge"),
+            evidenceNote: topAction.evidenceNote,
+          },
+          alternative: alternativeAction ? {
+            action: alternativeAction.actionLabel,
+            impact: alternativeAction.impact,
+            addressedGap: alternativeAction.addressedGap,
+            estimatedCommitment: estimatedHours(alternativeAction),
+            reasons: alternativeAction.reasons,
+            evidenceType: evidenceLabel(alternativeAction.evidenceType, "badge"),
+            evidenceNote: alternativeAction.evidenceNote,
+          } : null,
+          evidence: supportingEvidence.map((record) => ({
+            claim: record.atomic_claim,
+            source: record.sourceTitle,
+            limitation: record.limitations,
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(errorBody?.error || "Ask Trajectory could not answer right now.");
+      }
+      if (!response.body) throw new Error("Ask Trajectory returned an empty response.");
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        accumulated += decoder.decode(value, { stream: true });
+        setAdvisorResponse(accumulated);
+      }
+      accumulated += decoder.decode();
+      setAdvisorResponse(accumulated);
+      if (!accumulated.trim()) throw new Error("Claude did not return an explanation. Please try again.");
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setAdvisorError(error instanceof Error ? error.message : "Ask Trajectory could not answer right now.");
+    } finally {
+      if (advisorAbortRef.current === controller) {
+        advisorAbortRef.current = null;
+        setAdvisorLoading(false);
+      }
+    }
   }
 
   if (!loaded) return <section className="recommendation-empty"><strong>Building your guided trajectory…</strong></section>;
@@ -592,7 +709,7 @@ export function GuidedTrajectory({
       <>{nav}<section className="journey-detail guided-detail">
         <button className="journey-back" type="button" onClick={() => setView("graph")}>← Back to trajectory</button>
         <div className="journey-action-card">
-          <p className="trajectory-kicker">HIGHEST IMPACT THIS WEEK</p>
+          <p className="trajectory-kicker">HIGHEST-IMPACT FOCUS THIS MONTH</p>
           <div className="journey-action-card__heading"><h1>{topAction.actionLabel}</h1><strong>{topAction.score}</strong></div>
           <p>{topAction.reasons.join(" ")}</p>
           <div className="journey-metrics">
@@ -784,7 +901,7 @@ export function GuidedTrajectory({
       </div>
 
       <aside className="guided-impact">
-        <small>HIGHEST IMPACT THIS WEEK</small>
+        <small>HIGHEST-IMPACT FOCUS THIS MONTH</small>
         {topAction ? <>
           <span className="guided-impact__icon">★</span>
           <span className="guided-impact__evidence">{evidenceLabel(topAction.evidenceType, "badge")}</span>
@@ -793,6 +910,30 @@ export function GuidedTrajectory({
           <h3>Why this matters</h3>
           <p>{topAction.reasons[0]} {topAction.reasons[1]}</p>
           <button type="button" onClick={() => setView("recommendation")}>View action plan <span>→</span></button>
+          <div className="guided-advisor" data-open={advisorOpen}>
+            <button className="guided-advisor__toggle" type="button" aria-expanded={advisorOpen} onClick={() => setAdvisorOpen((open) => !open)}>
+              <span><i>✦</i> Ask Trajectory</span><b>{advisorOpen ? "−" : "+"}</b>
+            </button>
+            {advisorOpen ? <div className="guided-advisor__body">
+              <small>CONTEXTUAL CLAUDE ADVISOR</small>
+              <p>Ask about the recommendation Trajectory already calculated.</p>
+              <div className="guided-advisor__prompts">
+                {advisorPrompts.map((prompt) => (
+                  <button
+                    type="button"
+                    key={prompt.id}
+                    data-active={advisorQuestion === prompt.id}
+                    disabled={advisorLoading || (prompt.id === "alternative" && !alternativeAction)}
+                    onClick={() => askTrajectory(prompt.id)}
+                  >{prompt.label}</button>
+                ))}
+              </div>
+              {advisorLoading && !advisorResponse ? <div className="guided-advisor__thinking" role="status"><i /><i /><i /><span>Building your response…</span></div> : null}
+              {advisorResponse ? <div className="guided-advisor__response" aria-live="polite" aria-busy={advisorLoading}>{advisorResponse}{advisorLoading ? <i aria-hidden="true" /> : null}</div> : null}
+              {advisorError ? <p className="guided-advisor__error" role="alert">{advisorError}</p> : null}
+              <small className="guided-advisor__boundary">Claude explains the deterministic result. It cannot change scores or predict admission.</small>
+            </div> : null}
+          </div>
         </> : <><h2>No eligible action yet</h2><p>Review blocked prerequisites or update your profile.</p></>}
       </aside>
     </section></>

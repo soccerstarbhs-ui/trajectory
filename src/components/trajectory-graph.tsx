@@ -576,7 +576,7 @@ export function TrajectoryGraph({
         </button>
         {stateMessage ? <p className="state-update-message">{stateMessage}</p> : null}
         <div className="journey-action-card">
-          <p className="trajectory-kicker">HIGHEST IMPACT THIS WEEK</p>
+          <p className="trajectory-kicker">HIGHEST-IMPACT FOCUS THIS MONTH</p>
           <div className="journey-action-card__heading">
             <h1 id="recommendation-title">{topAction.actionLabel}</h1>
             <strong>{topAction.score}</strong>
@@ -687,7 +687,7 @@ export function TrajectoryGraph({
       {topAction ? (
         <button className="highest-impact-strip" type="button" onClick={() => setView("recommendation")}>
           <span>
-            <small>HIGHEST IMPACT THIS WEEK · PERSONALIZED PROFILE</small>
+            <small>HIGHEST-IMPACT FOCUS THIS MONTH · PERSONALIZED PROFILE</small>
             <strong>{topAction.actionLabel}</strong>
           </span>
           <i>{topAction.score} points →</i>

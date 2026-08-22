@@ -2223,6 +2223,76 @@ body {
 .guided-impact p { color: #8292a3; font-size: 0.65rem; line-height: 1.55; }
 .guided-impact > button { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-top: 1.2rem; padding: 0.8rem 0.85rem; border: 0; border-radius: 0.72rem; background: linear-gradient(100deg, #43d5a4, #8ae8cb); color: #06120e; font: inherit; font-size: 0.66rem; font-weight: 850; cursor: pointer; }
 
+.guided-advisor {
+  grid-column: 1 / -1;
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(112, 232, 194, 0.14);
+}
+.guided-advisor__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.72rem 0.78rem;
+  border: 1px solid rgba(102, 228, 188, 0.26);
+  border-radius: 0.72rem;
+  background: linear-gradient(110deg, rgba(35, 142, 111, 0.17), rgba(17, 42, 53, 0.72));
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.025), 0 0 24px rgba(59, 218, 169, 0.05);
+  color: #b9e9dc;
+  font: inherit;
+  font-size: 0.64rem;
+  font-weight: 820;
+  cursor: pointer;
+}
+.guided-advisor__toggle span { display: inline-flex; align-items: center; gap: 0.42rem; }
+.guided-advisor__toggle i { color: #68e2bb; font-size: 0.78rem; font-style: normal; text-shadow: 0 0 12px rgba(89, 229, 185, 0.65); }
+.guided-advisor__toggle b { color: #6ee6bf; font-size: 0.9rem; font-weight: 500; }
+.guided-advisor__toggle:hover { border-color: rgba(102, 228, 188, 0.52); background: linear-gradient(110deg, rgba(35, 142, 111, 0.25), rgba(17, 42, 53, 0.82)); }
+.guided-advisor__body { display: grid; gap: 0.62rem; padding: 0.78rem 0.15rem 0.1rem; animation: guided-advisor-open 220ms ease both; }
+.guided-advisor__body > small:first-child { color: #58ddb4; font-size: 0.49rem; font-weight: 850; letter-spacing: 0.1em; }
+.guided-advisor__body > p { margin: 0; color: #778a99; font-size: 0.57rem; line-height: 1.45; }
+.guided-advisor__prompts { display: grid; gap: 0.38rem; }
+.guided-advisor__prompts button {
+  width: 100%;
+  padding: 0.58rem 0.62rem;
+  border: 1px solid rgba(142, 174, 184, 0.14);
+  border-radius: 0.62rem;
+  background: rgba(12, 30, 40, 0.72);
+  color: #9eb0bc;
+  font: inherit;
+  font-size: 0.55rem;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+}
+.guided-advisor__prompts button:hover:not(:disabled),
+.guided-advisor__prompts button[data-active="true"] { border-color: rgba(89, 225, 183, 0.42); background: rgba(41, 138, 108, 0.14); color: #bce7dc; }
+.guided-advisor__prompts button:disabled { cursor: not-allowed; opacity: 0.42; }
+.guided-advisor__thinking { display: flex; align-items: center; gap: 0.24rem; padding: 0.65rem; border-radius: 0.65rem; background: rgba(45, 139, 111, 0.08); color: #78968d; font-size: 0.54rem; }
+.guided-advisor__thinking i { width: 4px; height: 4px; border-radius: 50%; background: #64dfb8; animation: guided-advisor-pulse 900ms ease-in-out infinite alternate; }
+.guided-advisor__thinking i:nth-child(2) { animation-delay: 160ms; }
+.guided-advisor__thinking i:nth-child(3) { margin-right: 0.25rem; animation-delay: 320ms; }
+.guided-advisor__response {
+  position: relative;
+  padding: 0.75rem;
+  border: 1px solid rgba(91, 223, 181, 0.18);
+  border-radius: 0.72rem;
+  background: rgba(9, 27, 36, 0.84);
+  color: #b7c9c5;
+  font-size: 0.59rem;
+  line-height: 1.58;
+  white-space: pre-wrap;
+}
+.guided-advisor__response > i { display: inline-block; width: 2px; height: 0.85em; margin-left: 2px; background: #65e0b9; animation: guided-advisor-cursor 650ms steps(2, jump-none) infinite; }
+.guided-advisor__error { margin: 0 !important; padding: 0.62rem; border-radius: 0.62rem; background: rgba(190, 67, 91, 0.1); color: #f0a3b2 !important; font-size: 0.55rem !important; }
+.guided-advisor__boundary { color: #536573; font-size: 0.48rem; line-height: 1.45; }
+
+@keyframes guided-advisor-open { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes guided-advisor-pulse { to { opacity: 0.25; transform: translateY(-2px); } }
+@keyframes guided-advisor-cursor { 50% { opacity: 0; } }
+
 .guided-missing-profile { display: grid; min-height: 75vh; place-content: center; text-align: center; }
 .guided-missing-profile p { color: #55dcb3; font-size: 0.62rem; letter-spacing: 0.2em; }
 .guided-missing-profile h1 { margin: 0.8rem 0; font-family: Georgia, "Times New Roman", serif; font-size: clamp(2.6rem, 6vw, 5rem); font-weight: 400; }
