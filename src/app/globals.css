@@ -840,6 +840,34 @@ body {
 .profile-edit-modal__heading button { border: 0; background: transparent; color: #8ca0b4; font-size: 1.6rem; cursor: pointer; }
 .profile-edit-save { width: 100%; margin-top: 1.2rem; }
 
+.profile-hours-overlay { z-index: 140; }
+.profile-hours-modal {
+  width: min(560px, 100%);
+  padding: clamp(1.6rem, 5vw, 2.6rem);
+  text-align: center;
+}
+.profile-hours-modal__icon {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 1.15rem;
+  place-items: center;
+  border: 1px solid rgba(91, 224, 181, 0.42);
+  border-radius: 50%;
+  background: rgba(63, 197, 155, 0.1);
+  box-shadow: 0 0 30px rgba(76, 224, 178, 0.13);
+  color: #75e7c3;
+  font-size: 1.35rem;
+}
+.profile-hours-modal > small { color: #58ddb5; font-size: 0.6rem; font-weight: 850; letter-spacing: 0.16em; }
+.profile-hours-modal > h2 { margin: 0.6rem 0 0; color: #eef8f5; font-family: Georgia, "Times New Roman", serif; font-size: clamp(2rem, 6vw, 3.2rem); font-weight: 400; letter-spacing: -0.045em; line-height: 1; }
+.profile-hours-modal > p { margin: 1rem auto 0; max-width: 460px; color: #8da0ad; font-size: 0.78rem; line-height: 1.65; }
+.profile-hours-modal > strong { display: block; margin-top: 0.9rem; color: #85e5c7; font-size: 0.75rem; }
+.profile-hours-modal__missing { display: grid; gap: 0.4rem; max-height: 180px; margin-top: 1.35rem; padding: 0.9rem; overflow-y: auto; border: 1px solid rgba(136, 167, 178, 0.14); border-radius: 0.85rem; background: rgba(5, 17, 26, 0.55); text-align: left; }
+.profile-hours-modal__missing > span { margin-bottom: 0.2rem; color: #66808a; font-size: 0.55rem; font-weight: 850; letter-spacing: 0.1em; text-transform: uppercase; }
+.profile-hours-modal__missing > p { margin: 0; padding: 0.48rem 0.55rem; border-radius: 0.5rem; background: rgba(20, 43, 52, 0.7); color: #c2d4d0; font-size: 0.67rem; }
+.profile-hours-modal > .profile-save { width: 100%; margin-top: 1.2rem; }
+
 .activity-current-toggle {
   display: flex !important;
   align-items: center;
@@ -2362,6 +2390,7 @@ body {
 .guided-missing-profile { display: grid; min-height: 75vh; place-content: center; text-align: center; }
 .guided-missing-profile p { color: #55dcb3; font-size: 0.62rem; letter-spacing: 0.2em; }
 .guided-missing-profile h1 { margin: 0.8rem 0; font-family: Georgia, "Times New Roman", serif; font-size: clamp(2.6rem, 6vw, 5rem); font-weight: 400; }
+.guided-missing-profile > span { display: block; max-width: 600px; margin: 0 auto 1.2rem; color: #8195a0; font-size: 0.82rem; line-height: 1.65; }
 .guided-missing-profile a { color: #8ce2c8; text-decoration: none; }
 .guided-detail { padding-top: 3rem; }
 
