@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -14,12 +15,13 @@ import {
   type Node,
   type NodeProps,
 } from "@xyflow/react";
-import { demoProfiles } from "@/lib/demo-profiles";
 import {
+  profileToRecommendationProfile,
   rankActions,
+  type ApplicantProfileSnapshot,
+  type DemoProfile,
   type RubricComponent,
 } from "@/lib/recommendation-engine";
-import { CheckpointProof } from "@/components/checkpoint-proof";
 
 export type GraphNodeRecord = {
   id: string;
@@ -61,7 +63,7 @@ export type EvidenceRecord = {
 };
 
 type Stage = "exploring" | "building" | "applying";
-type PathStatus = "completed" | "active" | "available" | "blocked" | "gap" | "goal";
+type PathStatus = "completed" | "active" | "recommended" | "available" | "blocked" | "goal";
 
 type TrajectoryNodeData = {
   eyebrow: string;
@@ -96,32 +98,32 @@ const stages: Array<{ id: Stage; title: string; detail: string; depth: number }>
 
 const statusColors: Record<PathStatus, string> = {
   completed: "#34d399",
-  active: "#a78bfa",
+  active: "#5eead4",
+  recommended: "#fb7185",
   available: "#60a5fa",
   blocked: "#64748b",
-  gap: "#fb7185",
   goal: "#fbbf24",
 };
 
 const statusLabels: Record<PathStatus, string> = {
   completed: "Completed",
   active: "Active",
+  recommended: "Recommended",
   available: "Available",
   blocked: "Blocked",
-  gap: "Gap",
   goal: "Goal",
 };
 
 const typeColors: Record<string, string> = {
   course: "#38bdf8",
-  research_lab: "#c084fc",
-  professor: "#f472b6",
+  research_lab: "#7dd3fc",
+  professor: "#6ee7b7",
   extracurricular: "#2dd4bf",
   internship: "#fb923c",
   scholarship: "#facc15",
   club: "#a3e635",
   goal: "#fbbf24",
-  current: "#a78bfa",
+  current: "#5eead4",
 };
 
 const typeLabels: Record<string, string> = {
@@ -143,6 +145,8 @@ const impactLabels: Record<string, string> = {
   feasibility: "Feasible from your current state",
   time_utility: "Useful at this point in your timeline",
   uncertainty: "Uncertainty penalty",
+  diminishing_returns: "Diminishing-returns penalty",
+  recovery_route: "Recovery-route priority",
 };
 
 const priorityByStage: Record<Stage, string[]> = {
@@ -153,21 +157,29 @@ const priorityByStage: Record<Stage, string[]> = {
 
 function statusForNode(
   node: GraphNodeRecord,
-  level: number,
-  index: number,
-  maxDepth: number,
   recommendedNodeId: string,
-  completedNodeNames: Set<string>,
-  blockedNodeNames: Set<string>
+  completedNodeNames: string[],
+  activeNodeNames: string[],
+  blockedNodeNames: string[],
+  availableNodeIds: Set<string>
 ): PathStatus {
   if (node.type === "goal") return "goal";
-  if (completedNodeNames.has(node.name)) return "completed";
-  if (blockedNodeNames.has(node.name)) return "blocked";
-  if (node.id === recommendedNodeId) return "active";
-  if (level === 1 && index === 0) return "gap";
-  if (level === 1 && index === 1) return "blocked";
-  if (level === maxDepth && (index === 2 || index === 3)) return "completed";
-  return "available";
+  if (includesApplicantName(completedNodeNames, node.name)) return "completed";
+  if (includesApplicantName(activeNodeNames, node.name)) return "active";
+  if (node.id === recommendedNodeId) return "recommended";
+  if (includesApplicantName(blockedNodeNames, node.name)) return "blocked";
+  return availableNodeIds.has(node.id) ? "available" : "blocked";
+}
+
+function includesApplicantName(names: string[], candidate: string) {
+  const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const candidateNormalized = normalize(candidate);
+  return names.some((name) => {
+    const normalized = normalize(name);
+    return normalized === candidateNormalized
+      || (Math.min(normalized.length, candidateNormalized.length) >= 14
+        && (normalized.includes(candidateNormalized) || candidateNormalized.includes(normalized)));
+  });
 }
 
 function detailForNode(node: GraphNodeRecord) {
@@ -217,13 +229,13 @@ function buildPathway(
   stage: Stage,
   recommendedNodeId: string,
   completedNodeNames: string[],
-  blockedNodeNames: string[]
+  activeNodeNames: string[],
+  blockedNodeNames: string[],
+  availableNodeIds: Set<string>
 ) {
   const stageConfig = stages.find((item) => item.id === stage)!;
   const nodeById = new Map(records.map((node) => [node.id, node]));
   const selected = new Set([goalId]);
-  const completed = new Set(completedNodeNames);
-  const blocked = new Set(blockedNodeNames);
   const distance = new Map([[goalId, 0]]);
   let frontier = [goalId];
 
@@ -243,6 +255,11 @@ function buildPathway(
       .sort((a, b) => {
         const left = nodeById.get(a)!;
         const right = nodeById.get(b)!;
+        const statePriority = (node: GraphNodeRecord) => includesApplicantName(completedNodeNames, node.name)
+          ? 0
+          : includesApplicantName(activeNodeNames, node.name) ? 1 : node.id === recommendedNodeId ? 2 : 3;
+        const stateOrder = statePriority(left) - statePriority(right);
+        if (stateOrder) return stateOrder;
         const typeOrder = priority.indexOf(left.type) - priority.indexOf(right.type);
         return typeOrder || left.name.localeCompare(right.name);
       })
@@ -281,12 +298,11 @@ function buildPathway(
         detail: detailForNode(node),
         status: statusForNode(
           node,
-          level,
-          index,
-          stageConfig.depth,
           recommendedNodeId,
-          completed,
-          blocked
+          completedNodeNames,
+          activeNodeNames,
+          blockedNodeNames,
+          availableNodeIds
         ),
         nodeType: node.type,
       },
@@ -333,7 +349,7 @@ function buildPathway(
       type: "smoothstep",
       animated: true,
       markerEnd: { type: MarkerType.ArrowClosed },
-      style: { stroke: "#a78bfa", strokeWidth: 2 },
+      style: { stroke: "#5eead4", strokeWidth: 2 },
     });
   }
 
@@ -354,73 +370,113 @@ export function TrajectoryGraph({
   evidenceRecords: EvidenceRecord[];
 }) {
   const goals = graphNodes.filter((node) => node.type === "goal");
-  const [goalId, setGoalId] = useState(goals[0]?.id ?? "");
+  const goalId = goals[0]?.id ?? "";
   const [stage, setStage] = useState<Stage>("building");
-  const [profileId, setProfileId] = useState(demoProfiles[0].id);
-  const [started, setStarted] = useState(false);
+  const [studentSnapshot, setStudentSnapshot] = useState<ApplicantProfileSnapshot | null>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [view, setView] = useState<"graph" | "recommendation" | "evidence">("graph");
   const [completedActions, setCompletedActions] = useState<string[]>([]);
   const [stateMessage, setStateMessage] = useState("");
   const [rerouteScenario, setRerouteScenario] = useState<"none" | "rejection" | "opportunity">("none");
   const [rerouteBefore, setRerouteBefore] = useState("");
   const [rejectedNodeName, setRejectedNodeName] = useState("");
-  const [organicChemistryWhatIf, setOrganicChemistryWhatIf] = useState(false);
-  const baseProfile = demoProfiles.find((profile) => profile.id === profileId) ?? demoProfiles[0];
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        const stored = window.localStorage.getItem("trajectory-applicant-profile-v1");
+        if (stored) {
+          const parsed = JSON.parse(stored) as ApplicantProfileSnapshot;
+          setStudentSnapshot(parsed);
+          const cycleYear = Number(parsed.basic.applicationCycle.match(/\d{4}/)?.[0]);
+          const monthsUntilApplication = Number.isFinite(cycleYear)
+            ? (new Date(`${cycleYear}-06-01T00:00:00Z`).getTime() - Date.now()) / (86_400_000 * 30.44)
+            : null;
+          setStage(monthsUntilApplication !== null && monthsUntilApplication <= 12
+            ? "applying"
+            : parsed.courses.length > 0 || parsed.activities.length > 0 ? "building" : "exploring");
+        }
+      } catch {
+        window.localStorage.removeItem("trajectory-applicant-profile-v1");
+      } finally {
+        setProfileLoaded(true);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const baseProfile = useMemo(
+    () => studentSnapshot ? profileToRecommendationProfile(studentSnapshot) : null,
+    [studentSnapshot]
+  );
+  const activeNodeNames = useMemo(() => studentSnapshot ? [
+    ...studentSnapshot.courses.filter((course) => course.status === "in_progress").map((course) => course.name),
+    ...studentSnapshot.activities.filter((activity) => activity.status === "active").map((activity) => activity.name),
+  ] : [], [studentSnapshot]);
   const profile = useMemo(
-    () => ({
+    (): DemoProfile | null => baseProfile ? ({
       ...baseProfile,
-      gaps: organicChemistryWhatIf
-        ? { ...baseProfile.gaps, academic: 1, research: 0.45, planning: 0.75 }
-        : baseProfile.gaps,
       completedNodeNames: [
-        ...baseProfile.completedNodeNames.filter(
-          (name) => !organicChemistryWhatIf || name !== "CHEM UN2443 Organic Chemistry I"
-        ),
+        ...baseProfile.completedNodeNames,
         ...completedActions,
       ],
-      blockedNodeNames:
-        organicChemistryWhatIf
-          ? [
-              ...baseProfile.blockedNodeNames,
-              "CHEM UN2444 Organic Chemistry II",
-              "CHEM UN2493/2494 Organic Chemistry Laboratory",
-              "BIOC UN3300 Biochemistry",
-            ]
-          : rerouteScenario === "opportunity"
-          ? baseProfile.blockedNodeNames.filter(
-              (name) => name !== "Columbia SURF (Summer Undergraduate Research Fellowship)"
-            )
-          : [
-              ...baseProfile.blockedNodeNames,
-              ...(rerouteScenario === "rejection" && rejectedNodeName ? [rejectedNodeName] : []),
-            ],
+      blockedNodeNames: [
+        ...baseProfile.blockedNodeNames,
+        ...(rerouteScenario === "rejection" && rejectedNodeName ? [rejectedNodeName] : []),
+      ],
       urgency: rerouteScenario === "opportunity" ? "deadline" as const : baseProfile.urgency,
-      priorityNodeName: organicChemistryWhatIf
-        ? "CHEM UN2443 Organic Chemistry I"
-        : undefined,
-    }),
-    [baseProfile, completedActions, rerouteScenario, rejectedNodeName, organicChemistryWhatIf]
+      actionOutcomes: rerouteScenario === "rejection" && rejectedNodeName
+        ? { ...baseProfile.actionOutcomes, [rejectedNodeName]: "rejected" as const }
+        : baseProfile.actionOutcomes,
+    }) : null,
+    [baseProfile, completedActions, rerouteScenario, rejectedNodeName]
   );
   const rankedActions = useMemo(
-    () => rankActions(profile, graphNodes, graphEdges, rubricComponents),
+    () => profile ? rankActions(profile, graphNodes, graphEdges, rubricComponents) : [],
     [profile, graphNodes, graphEdges, rubricComponents]
   );
   const topAction = rankedActions[0];
-  const whatIfBaseline = useMemo(
-    () => rankActions(demoProfiles[0], graphNodes, graphEdges, rubricComponents)[0],
-    [graphNodes, graphEdges, rubricComponents]
-  );
-  const pathway = useMemo(
-    () => buildPathway(
-      graphNodes,
-      graphEdges,
-      goalId,
-      stage,
-      topAction?.node.id ?? "",
-      profile.completedNodeNames,
-      profile.blockedNodeNames
-    ),
-    [graphNodes, graphEdges, goalId, stage, topAction?.node.id, profile]
+  const personalizedNodes: GraphNodeRecord[] = studentSnapshot ? [
+    ...studentSnapshot.courses.map((course, index) => ({
+      id: `profile-course-${index}`,
+      type: "course",
+      name: course.name,
+      description: [course.term, course.grade && `Grade ${course.grade}`].filter(Boolean).join(" · ") || "Student coursework",
+      metadata: { source: "applicant_profile", status: course.status },
+    })),
+    ...studentSnapshot.activities.map((activity, index) => ({
+      id: `profile-activity-${index}`,
+      type: activity.category === "research" ? "research_lab" : "extracurricular",
+      name: activity.name,
+      description: activity.description || [activity.role, activity.hours && `${activity.hours} hours`].filter(Boolean).join(" · "),
+      metadata: { source: "applicant_profile", category: activity.category, status: activity.status },
+    })),
+  ].filter((profileNode) => !graphNodes.some((node) => includesApplicantName([profileNode.name], node.name))) : [];
+  const personalizedEdges: GraphEdgeRecord[] = personalizedNodes.map((node) => ({
+    id: `profile-edge-${node.id}`,
+    source_id: node.id,
+    target_id: goalId,
+    relationship_type: "supports",
+    evidence_class: null,
+    confidence: "unknown",
+  }));
+  const pathwayRecords = [...graphNodes, ...personalizedNodes];
+  const pathwayEdges = [...graphEdges, ...personalizedEdges];
+  const availableNodeIds = new Set([
+    ...rankedActions.map((action) => action.node.id),
+    ...personalizedNodes
+      .filter((node) => node.metadata?.status === "planned")
+      .map((node) => node.id),
+  ]);
+  const pathway = buildPathway(
+    pathwayRecords,
+    pathwayEdges,
+    goalId,
+    stage,
+    topAction?.node.id ?? "",
+    profile?.completedNodeNames ?? [],
+    activeNodeNames,
+    profile?.blockedNodeNames ?? [],
+    availableNodeIds
   );
 
   const supportingEvidence = useMemo(() => {
@@ -447,29 +503,24 @@ export function TrajectoryGraph({
   }
 
   function runRejectionDemo() {
-    const researchProfile = demoProfiles[0];
-    const baseline = rankActions(researchProfile, graphNodes, graphEdges, rubricComponents)[0];
+    if (!profile) return;
+    const baseline = rankedActions.find((action) => action.addressedGap === "research") ?? topAction;
     if (!baseline) return;
-    setProfileId(researchProfile.id);
     setCompletedActions([]);
     setStateMessage("");
     setRerouteBefore(baseline.actionLabel);
     setRejectedNodeName(baseline.node.name);
     setRerouteScenario("rejection");
-    setOrganicChemistryWhatIf(false);
   }
 
   function runOpportunityDemo() {
-    const researchProfile = demoProfiles[0];
-    const baseline = rankActions(researchProfile, graphNodes, graphEdges, rubricComponents)[0];
+    const baseline = topAction;
     if (!baseline) return;
-    setProfileId(researchProfile.id);
     setCompletedActions([]);
     setStateMessage("");
     setRerouteBefore(baseline.actionLabel);
     setRejectedNodeName("");
     setRerouteScenario("opportunity");
-    setOrganicChemistryWhatIf(false);
   }
 
   function resetRerouteDemo() {
@@ -478,112 +529,41 @@ export function TrajectoryGraph({
     setRejectedNodeName("");
   }
 
-  function runOrganicChemistryWhatIf() {
-    setProfileId(demoProfiles[0].id);
-    setCompletedActions([]);
-    setStateMessage("");
-    setRerouteScenario("none");
-    setRerouteBefore("");
-    setRejectedNodeName("");
-    setOrganicChemistryWhatIf(true);
+  if (!profileLoaded) {
+    return (
+      <section className="recommendation-empty" role="status">
+        <strong>Building your personalized trajectory…</strong>
+      </section>
+    );
   }
 
-  if (!started) {
+  if (!studentSnapshot || !profile) {
     return (
-      <section className="onboarding-shell" aria-labelledby="onboarding-title">
+      <section className="onboarding-shell" aria-labelledby="missing-profile-title">
         <div className="onboarding-copy">
           <p className="trajectory-kicker">TRAJECTORY</p>
-          <h1 id="onboarding-title">Where do you want to go?</h1>
-          <p>
-            Tell us your destination and where you are now. We&apos;ll map the
-            real courses and opportunities between them.
-          </p>
-        </div>
-
-        <div className="onboarding-panel">
-          <fieldset>
-            <legend>01 · Choose your destination</legend>
-            <label className="destination-card">
-              <input
-                type="radio"
-                name="destination"
-                value={goalId}
-                checked
-                onChange={() => setGoalId(goals[0]?.id ?? "")}
-              />
-              <span>
-                <small>HEALTHCARE</small>
-                <strong>{goals[0]?.name ?? "Medical School"}</strong>
-                <em>U.S. MD or DO pathway</em>
-              </span>
-              <i>✓</i>
-            </label>
-          </fieldset>
-
-          <fieldset>
-            <legend>02 · Where are you now?</legend>
-            <div className="stage-grid">
-              {stages.map((item) => (
-                <label key={item.id} className="stage-card" data-active={stage === item.id}>
-                  <input
-                    type="radio"
-                    name="stage"
-                    value={item.id}
-                    checked={stage === item.id}
-                    onChange={() => setStage(item.id)}
-                  />
-                  <strong>{item.title}</strong>
-                  <span>{item.detail}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend>03 · Choose a demo profile</legend>
-            <div className="onboarding-profile-grid">
-              {demoProfiles.map((item) => (
-                <label key={item.id} className="onboarding-profile" data-active={profileId === item.id}>
-                  <input
-                    type="radio"
-                    name="profile"
-                    value={item.id}
-                    checked={profileId === item.id}
-                    onChange={() => setProfileId(item.id)}
-                  />
-                  <strong>{item.label}</strong>
-                  <span>{item.summary}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          <button
-            type="button"
-            onClick={() => {
-              setCompletedActions([]);
-              setStateMessage("");
-              setRerouteScenario("none");
-              setRerouteBefore("");
-              setRejectedNodeName("");
-              setOrganicChemistryWhatIf(false);
-              setView("graph");
-              setStarted(true);
-            }}
-            disabled={!goalId}
-          >
-            Map my trajectory <span>→</span>
-          </button>
+          <h1 id="missing-profile-title">Complete your profile first.</h1>
+          <p>Your saved academics and activities are needed to calculate node states and recommendations.</p>
+          <Link className="journey-primary" href="/profile">Open applicant profile <span>→</span></Link>
         </div>
       </section>
     );
   }
 
   const goal = goals.find((item) => item.id === goalId);
+  const trajectoryNavigation = (
+    <nav className="trajectory-nav">
+      <Link href="/" className="orbit-brand" aria-label="Return to destinations">
+        <span className="orbit-brand__mark" aria-hidden="true"><i /></span>
+        TRAJECTORY
+      </Link>
+      <span>MEDICAL SCHOOL · PERSONALIZED TRAJECTORY</span>
+    </nav>
+  );
 
   if (view === "recommendation" && topAction) {
     return (
-      <section className="journey-detail" aria-labelledby="recommendation-title">
+      <>{trajectoryNavigation}<section className="journey-detail" aria-labelledby="recommendation-title">
         <div className="journey-progress" aria-label="Demo progress">
           <span data-complete="true">Onboarding</span>
           <span data-complete="true">Graph</span>
@@ -596,13 +576,13 @@ export function TrajectoryGraph({
         </button>
         {stateMessage ? <p className="state-update-message">{stateMessage}</p> : null}
         <div className="journey-action-card">
-          <p className="trajectory-kicker">HIGHEST IMPACT THIS WEEK</p>
+          <p className="trajectory-kicker">HIGHEST-IMPACT FOCUS THIS MONTH</p>
           <div className="journey-action-card__heading">
             <h1 id="recommendation-title">{topAction.actionLabel}</h1>
             <strong>{topAction.score}</strong>
           </div>
           <p>
-            This is the strongest eligible move for the {baseProfile.label.toLowerCase()} profile.
+            This is the strongest eligible move for your current {profile.label.toLowerCase()} profile.
             It addresses the <strong>{topAction.addressedGap}</strong> gap and unlocks or supports {topAction.unlockCount} downstream pathway connection{topAction.unlockCount === 1 ? "" : "s"}.
           </p>
           <div className="journey-metrics">
@@ -614,7 +594,7 @@ export function TrajectoryGraph({
             {Object.entries(topAction.breakdown).map(([key, points]) => (
               <div key={key}>
                 <span>{impactLabels[key] ?? key}</span>
-                <strong>{key === "uncertainty" ? "−" : "+"}{points}</strong>
+                <strong>{key === "uncertainty" || key === "diminishing_returns" ? "−" : "+"}{points}</strong>
               </div>
             ))}
           </div>
@@ -623,13 +603,13 @@ export function TrajectoryGraph({
             Review supporting evidence <span>→</span>
           </button>
         </div>
-      </section>
+      </section></>
     );
   }
 
   if (view === "evidence" && topAction) {
     return (
-      <section className="journey-detail" aria-labelledby="evidence-title">
+      <>{trajectoryNavigation}<section className="journey-detail" aria-labelledby="evidence-title">
         <div className="journey-progress" aria-label="Demo progress">
           <span data-complete="true">Onboarding</span>
           <span data-complete="true">Graph</span>
@@ -678,23 +658,22 @@ export function TrajectoryGraph({
             Mark action complete and recalculate <span>→</span>
           </button>
         </div>
-      </section>
+      </section></>
     );
   }
 
   return (
     <>
+      {trajectoryNavigation}
       <header className="trajectory-header">
         <div>
-          <p className="trajectory-kicker">TRAJECTORY</p>
+          <p className="trajectory-kicker">YOUR PERSONALIZED PATH</p>
           <h1>Your future, mapped.</h1>
           <p className="trajectory-subtitle">
             A focused path from where you are now to {goal?.name ?? "your goal"}.
           </p>
         </div>
-        <button className="trajectory-edit" type="button" onClick={() => setStarted(false)}>
-          Edit path
-        </button>
+        <Link className="trajectory-edit" href="/profile">Edit profile</Link>
       </header>
 
       <div className="journey-progress journey-progress--graph" aria-label="Demo progress">
@@ -708,7 +687,7 @@ export function TrajectoryGraph({
       {topAction ? (
         <button className="highest-impact-strip" type="button" onClick={() => setView("recommendation")}>
           <span>
-            <small>HIGHEST IMPACT THIS WEEK · {baseProfile.label.toUpperCase()}</small>
+            <small>HIGHEST-IMPACT FOCUS THIS MONTH · PERSONALIZED PROFILE</small>
             <strong>{topAction.actionLabel}</strong>
           </span>
           <i>{topAction.score} points →</i>
@@ -751,36 +730,6 @@ export function TrajectoryGraph({
         ) : null}
       </section>
 
-      <section className="what-if-demo" aria-labelledby="what-if-title">
-        <div className="what-if-demo__heading">
-          <span>
-            <small>WHAT IF?</small>
-            <strong id="what-if-title">What happens if I don&apos;t take Organic Chemistry I?</strong>
-          </span>
-          <button type="button" onClick={organicChemistryWhatIf ? () => setOrganicChemistryWhatIf(false) : runOrganicChemistryWhatIf}>
-            {organicChemistryWhatIf ? "Restore original plan" : "Skip Organic Chemistry I"}
-          </button>
-        </div>
-        {organicChemistryWhatIf && topAction ? (
-          <div className="what-if-comparison" aria-live="polite">
-            <article>
-              <small>BEFORE</small>
-              <strong>Academic foundation on track</strong>
-              <p>Organic Chemistry II, Organic Chemistry Laboratory, and Biochemistry remain reachable in sequence.</p>
-              <span>{whatIfBaseline?.actionLabel ?? "Original recommendation preserved"}</span>
-            </article>
-            <article data-changed="true">
-              <small>AFTER SKIPPING</small>
-              <strong>Three downstream courses become blocked</strong>
-              <p>The sequence pauses until Organic Chemistry I is completed. The shortest recovery route is the next available term or summer offering.</p>
-              <span>New recommendation: {topAction.actionLabel}</span>
-            </article>
-          </div>
-        ) : (
-          <p>Test the downstream effects and best recovery route without changing the saved pathway.</p>
-        )}
-      </section>
-
       <section className="trajectory-graph-frame" aria-label="Trajectory graph">
         <div className="trajectory-graph-frame__topline">
           <span>{goal?.name.toUpperCase()} PATHWAY</span>
@@ -815,14 +764,13 @@ export function TrajectoryGraph({
           <div className="trajectory-canvas__legend">
             <span><i className="legend-completed" />Completed</span>
             <span><i className="legend-active" />Active</span>
+            <span><i className="legend-gap" />Recommended</span>
             <span><i className="legend-available" />Available</span>
             <span><i className="legend-blocked" />Blocked</span>
-            <span><i className="legend-gap" />Gap</span>
             <span><i className="legend-goal" />Goal</span>
           </div>
         </div>
       </section>
-      <CheckpointProof />
     </>
   );
 }

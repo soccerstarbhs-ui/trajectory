@@ -4,9 +4,9 @@ Target: **1:35 presentation + 0:25 question buffer**
 
 ## 0:00–0:15 — Open on the decision
 
-**Screen:** Complete onboarding with the research-deficient profile, then point to “Highest Impact This Week.”
+**Screen:** Complete onboarding with the research-deficient profile, then point to “Highest-Impact Focus This Month.”
 
-“College planning tools usually begin with courses. Trajectory begins with the destination, maps the dependencies and opportunities between the student and that goal, and identifies the highest-value action they can take this week.”
+“College planning tools usually begin with courses. Trajectory begins with the destination, maps the dependencies and opportunities between the student and that goal, and identifies the highest-value focus for the coming month.”
 
 ## 0:15–0:35 — Explain the score
 

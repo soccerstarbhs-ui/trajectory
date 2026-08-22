@@ -7,11 +7,15 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "tsx supabase/seed/seed.ts"
+    "test": "node --import tsx --test src/lib/recommendation-engine.test.ts",
+    "seed": "tsx supabase/seed/seed.ts",
+    "sync:columbia-courses": "node scripts/sync-columbia-course-catalog.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
     "@supabase/supabase-js": "^2.111.0",
     "@xyflow/react": "12.11.2",
+    "mammoth": "^1.12.1",
     "next": "16.2.12",
     "react": "19.2.4",
     "react-dom": "19.2.4",
