@@ -158,6 +158,7 @@ function milestoneForGraphNode(node: GraphNodeRecord): MilestoneId {
   const text = `${node.name} ${JSON.stringify(node.metadata ?? {})}`.toLowerCase();
   if (node.type === "course") return "foundation";
   if (node.type === "research_lab" || node.type === "internship" || /research|laboratory|\blab\b|surf|publication/.test(text)) return "depth";
+  if (/resident advis(?:or|er)|resident assistant/.test(text)) return "differentiation";
   if (node.type === "scholarship" || /lead|president|founder|mentor|award|fellowship/.test(text)) return "differentiation";
   if (node.type === "professor" || /mcat|application|letter|interview|advisor|deadline/.test(text)) return "application";
   return "experience";
