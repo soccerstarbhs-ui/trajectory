@@ -2293,6 +2293,71 @@ body {
 @keyframes guided-advisor-pulse { to { opacity: 0.25; transform: translateY(-2px); } }
 @keyframes guided-advisor-cursor { 50% { opacity: 0; } }
 
+.guided-advisor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 3rem);
+  background: rgba(2, 10, 17, 0.78);
+  backdrop-filter: blur(14px);
+  animation: guided-advisor-backdrop 180ms ease both;
+}
+.guided-advisor-modal {
+  width: min(880px, 100%);
+  max-height: min(820px, calc(100svh - 2rem));
+  overflow-y: auto;
+  padding: clamp(1.35rem, 3vw, 2.2rem);
+  border: 1px solid rgba(100, 229, 189, 0.28);
+  border-radius: 1.65rem;
+  background:
+    radial-gradient(circle at 86% 0%, rgba(53, 189, 148, 0.12), transparent 20rem),
+    linear-gradient(145deg, rgba(11, 31, 42, 0.99), rgba(6, 19, 29, 0.99));
+  box-shadow: 0 34px 110px rgba(0, 0, 0, 0.58), 0 0 70px rgba(65, 220, 172, 0.08), inset 0 1px rgba(255, 255, 255, 0.035);
+  color: #eaf6f3;
+  scrollbar-color: rgba(92, 224, 181, 0.45) transparent;
+  scrollbar-width: thin;
+  animation: guided-advisor-modal-in 260ms cubic-bezier(.18, .78, .2, 1) both;
+}
+.guided-advisor-modal > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 2rem; }
+.guided-advisor-modal > header small { color: #5de0b7; font-size: 0.62rem; font-weight: 850; letter-spacing: 0.16em; }
+.guided-advisor-modal > header h2 { margin: 0.55rem 0 0; font-family: Georgia, "Times New Roman", serif; font-size: clamp(2.2rem, 5vw, 3.6rem); font-weight: 400; letter-spacing: -0.055em; line-height: 1; }
+.guided-advisor-modal > header h2 i { color: #67e2bb; font-family: inherit; font-style: normal; text-shadow: 0 0 24px rgba(92, 226, 184, 0.48); }
+.guided-advisor-modal > header p { max-width: 620px; margin: 0.9rem 0 0; color: #8398a5; font-size: 0.82rem; line-height: 1.6; }
+.guided-advisor-modal > header > button { flex: 0 0 auto; width: 38px; height: 38px; border: 1px solid rgba(142, 174, 184, 0.18); border-radius: 50%; background: rgba(12, 31, 41, 0.72); color: #8ca0ac; font: inherit; font-size: 1.4rem; cursor: pointer; }
+.guided-advisor-modal > header > button:hover { border-color: rgba(105, 229, 190, 0.45); color: #d8eee8; }
+.guided-advisor-modal__focus { display: grid; gap: 0.42rem; margin-top: 1.55rem; padding: 1.05rem 1.15rem; border: 1px solid rgba(91, 224, 181, 0.18); border-radius: 1rem; background: rgba(39, 141, 110, 0.08); }
+.guided-advisor-modal__focus span { color: #5fddb7; font-size: 0.56rem; font-weight: 850; letter-spacing: 0.12em; }
+.guided-advisor-modal__focus strong { color: #deeee9; font-family: Georgia, "Times New Roman", serif; font-size: 1.2rem; font-weight: 400; line-height: 1.3; }
+.guided-advisor-modal__focus small { color: #748b97; font-size: 0.66rem; text-transform: capitalize; }
+.guided-advisor-modal .guided-advisor__prompts { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.65rem; margin-top: 1rem; }
+.guided-advisor-modal .guided-advisor__prompts button { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0.65rem; min-height: 68px; padding: 0.75rem; font-size: 0.7rem; }
+.guided-advisor-modal .guided-advisor__prompts button > i { display: grid; width: 28px; height: 28px; place-items: center; border: 1px solid rgba(93, 225, 184, 0.25); border-radius: 50%; color: #5bdab4; font-size: 0.52rem; font-style: normal; }
+.guided-advisor-modal .guided-advisor__prompts button > span { line-height: 1.4; }
+.guided-advisor-modal__answer { display: grid; min-height: 245px; margin-top: 0.9rem; padding: clamp(1rem, 2.2vw, 1.5rem); border: 1px solid rgba(137, 171, 181, 0.14); border-radius: 1.05rem; background: rgba(5, 17, 26, 0.68); }
+.guided-advisor-modal__empty { align-self: center; display: grid; justify-items: center; gap: 0.55rem; max-width: 440px; margin: auto; color: #728791; text-align: center; }
+.guided-advisor-modal__empty > i { display: grid; width: 46px; height: 46px; place-items: center; border: 1px solid rgba(91, 223, 181, 0.25); border-radius: 50%; color: #67dfba; font-style: normal; box-shadow: 0 0 26px rgba(75, 218, 173, 0.09); }
+.guided-advisor-modal__empty strong { color: #b9ccc7; font-family: Georgia, "Times New Roman", serif; font-size: 1.15rem; font-weight: 400; }
+.guided-advisor-modal__empty span { font-size: 0.72rem; line-height: 1.55; }
+.guided-advisor-modal .guided-advisor__thinking { align-self: center; justify-self: center; padding: 0.85rem 1rem; font-size: 0.72rem; }
+.guided-advisor-modal .guided-advisor__response { align-self: start; padding: 0; border: 0; background: transparent; color: #c5d7d2; font-size: 0.88rem; line-height: 1.75; }
+.guided-advisor-modal .guided-advisor__error { align-self: start; padding: 0.85rem !important; font-size: 0.72rem !important; }
+.guided-advisor-modal > footer { display: flex; align-items: flex-start; gap: 0.55rem; margin-top: 0.9rem; color: #617580; font-size: 0.58rem; line-height: 1.5; }
+.guided-advisor-modal > footer i { color: #58d9b2; font-style: normal; }
+
+@keyframes guided-advisor-backdrop { from { opacity: 0; } }
+@keyframes guided-advisor-modal-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } }
+
+@media (max-width: 700px) {
+  .guided-advisor-overlay { align-items: end; padding: 0; }
+  .guided-advisor-modal { max-height: 92svh; padding: 1.2rem; border-radius: 1.35rem 1.35rem 0 0; }
+  .guided-advisor-modal > header h2 { font-size: 2.35rem; }
+  .guided-advisor-modal .guided-advisor__prompts { grid-template-columns: 1fr; }
+  .guided-advisor-modal .guided-advisor__prompts button { min-height: 54px; }
+  .guided-advisor-modal__answer { min-height: 210px; }
+}
+
 .guided-missing-profile { display: grid; min-height: 75vh; place-content: center; text-align: center; }
 .guided-missing-profile p { color: #55dcb3; font-size: 0.62rem; letter-spacing: 0.2em; }
 .guided-missing-profile h1 { margin: 0.8rem 0; font-family: Georgia, "Times New Roman", serif; font-size: clamp(2.6rem, 6vw, 5rem); font-weight: 400; }

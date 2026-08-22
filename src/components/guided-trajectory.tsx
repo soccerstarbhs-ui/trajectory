@@ -530,6 +530,20 @@ export function GuidedTrajectory({
 
   useEffect(() => () => advisorAbortRef.current?.abort(), []);
 
+  useEffect(() => {
+    if (!advisorOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setAdvisorOpen(false);
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [advisorOpen]);
+
   const baseProfile = useMemo(() => snapshot ? profileToRecommendationProfile(snapshot) : null, [snapshot]);
   const assessment = useMemo(() => snapshot ? deriveReadinessGaps(snapshot) : null, [snapshot]);
   const personalizedNodes = useMemo(() => snapshot && assessment ? buildPersonalizedActionNodes(snapshot, assessment) : [], [snapshot, assessment]);
@@ -911,31 +925,52 @@ export function GuidedTrajectory({
           <p>{topAction.reasons[0]} {topAction.reasons[1]}</p>
           <button type="button" onClick={() => setView("recommendation")}>View action plan <span>→</span></button>
           <div className="guided-advisor" data-open={advisorOpen}>
-            <button className="guided-advisor__toggle" type="button" aria-expanded={advisorOpen} onClick={() => setAdvisorOpen((open) => !open)}>
-              <span><i>✦</i> Ask Trajectory</span><b>{advisorOpen ? "−" : "+"}</b>
+            <button className="guided-advisor__toggle" type="button" aria-haspopup="dialog" aria-expanded={advisorOpen} onClick={() => setAdvisorOpen(true)}>
+              <span><i>✦</i> Ask Trajectory</span><b>↗</b>
             </button>
-            {advisorOpen ? <div className="guided-advisor__body">
-              <small>CONTEXTUAL CLAUDE ADVISOR</small>
-              <p>Ask about the recommendation Trajectory already calculated.</p>
-              <div className="guided-advisor__prompts">
-                {advisorPrompts.map((prompt) => (
-                  <button
-                    type="button"
-                    key={prompt.id}
-                    data-active={advisorQuestion === prompt.id}
-                    disabled={advisorLoading || (prompt.id === "alternative" && !alternativeAction)}
-                    onClick={() => askTrajectory(prompt.id)}
-                  >{prompt.label}</button>
-                ))}
-              </div>
-              {advisorLoading && !advisorResponse ? <div className="guided-advisor__thinking" role="status"><i /><i /><i /><span>Building your response…</span></div> : null}
-              {advisorResponse ? <div className="guided-advisor__response" aria-live="polite" aria-busy={advisorLoading}>{advisorResponse}{advisorLoading ? <i aria-hidden="true" /> : null}</div> : null}
-              {advisorError ? <p className="guided-advisor__error" role="alert">{advisorError}</p> : null}
-              <small className="guided-advisor__boundary">Claude explains the deterministic result. It cannot change scores or predict admission.</small>
-            </div> : null}
           </div>
         </> : <><h2>No eligible action yet</h2><p>Review blocked prerequisites or update your profile.</p></>}
       </aside>
-    </section></>
+    </section>
+    {advisorOpen && topAction ? (
+      <div className="guided-advisor-overlay" role="presentation" onMouseDown={(event) => {
+        if (event.target === event.currentTarget) setAdvisorOpen(false);
+      }}>
+        <section className="guided-advisor-modal" role="dialog" aria-modal="true" aria-labelledby="guided-advisor-title">
+          <header>
+            <div>
+              <small>CONTEXTUAL CLAUDE ADVISOR</small>
+              <h2 id="guided-advisor-title"><i>✦</i> Ask Trajectory</h2>
+              <p>Understand the recommendation Trajectory already calculated or turn it into a practical monthly plan.</p>
+            </div>
+            <button type="button" aria-label="Close Ask Trajectory" onClick={() => setAdvisorOpen(false)}>×</button>
+          </header>
+          <div className="guided-advisor-modal__focus">
+            <span>YOUR HIGHEST-IMPACT FOCUS THIS MONTH</span>
+            <strong>{topAction.actionLabel}</strong>
+            <small>{topAction.impact} impact · {estimatedHours(topAction)} · {topAction.addressedGap} readiness</small>
+          </div>
+          <div className="guided-advisor__prompts">
+            {advisorPrompts.map((prompt) => (
+              <button
+                type="button"
+                key={prompt.id}
+                data-active={advisorQuestion === prompt.id}
+                disabled={advisorLoading || (prompt.id === "alternative" && !alternativeAction)}
+                onClick={() => askTrajectory(prompt.id)}
+              ><i>{prompt.id === "why" ? "01" : prompt.id === "month_plan" ? "02" : "03"}</i><span>{prompt.label}</span></button>
+            ))}
+          </div>
+          <div className="guided-advisor-modal__answer">
+            {!advisorQuestion && !advisorError ? <div className="guided-advisor-modal__empty"><i>✦</i><strong>Choose a question above.</strong><span>Claude will use only your profile, the deterministic ranking, and the evidence already supplied to Trajectory.</span></div> : null}
+            {advisorLoading && !advisorResponse ? <div className="guided-advisor__thinking" role="status"><i /><i /><i /><span>Building your response…</span></div> : null}
+            {advisorResponse ? <div className="guided-advisor__response" aria-live="polite" aria-busy={advisorLoading}>{advisorResponse}{advisorLoading ? <i aria-hidden="true" /> : null}</div> : null}
+            {advisorError ? <p className="guided-advisor__error" role="alert">{advisorError}</p> : null}
+          </div>
+          <footer><i>ⓘ</i><span>Claude explains the deterministic result. It cannot change scores, introduce outside evidence, or predict admission.</span></footer>
+        </section>
+      </div>
+    ) : null}
+    </>
   );
 }
