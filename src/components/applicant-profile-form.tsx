@@ -152,6 +152,7 @@ export function ApplicantProfileForm() {
   const [goalSetupOpen, setGoalSetupOpen] = useState(false);
   const [goalStep, setGoalStep] = useState<1 | 2>(1);
   const [goalError, setGoalError] = useState("");
+  const [hoursPromptOpen, setHoursPromptOpen] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -195,6 +196,14 @@ export function ApplicantProfileForm() {
       counts[activity.category] = (counts[activity.category] ?? 0) + 1;
       return counts;
     }, {}),
+    [activities]
+  );
+
+  const activitiesMissingHours = useMemo(
+    () => activities.filter((activity) => {
+      const hours = Number(activity.hours);
+      return !activity.hours.trim() || !Number.isFinite(hours) || hours <= 0;
+    }),
     [activities]
   );
 
@@ -301,9 +310,21 @@ export function ApplicantProfileForm() {
 
   function saveProfile(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (activitiesMissingHours.length > 0) {
+      setHoursPromptOpen(true);
+      return;
+    }
     window.localStorage.setItem(storageKey, JSON.stringify({ basic, courses, activities }));
     setSaved(true);
     router.push("/trajectory");
+  }
+
+  function returnToMissingHours() {
+    setHoursPromptOpen(false);
+    setShowAllActivities(true);
+    window.requestAnimationFrame(() => {
+      document.getElementById("profile-activities")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   function restartProfile() {
@@ -712,7 +733,7 @@ export function ApplicantProfileForm() {
             </div>
           </section>
 
-          <section className="profile-section">
+          <section className="profile-section" id="profile-activities">
             <SectionHeading number="04" title="Experiences and activities" detail="Clinical work, service, leadership, research, and everything else that matters." />
             {activities.length > 0 ? (
               <div className="profile-record-list">
@@ -774,6 +795,23 @@ export function ApplicantProfileForm() {
           {saved ? <p className="profile-saved" role="status">Profile saved. Gap analysis comes next.</p> : <small>Your information is saved in this browser for the MVP.</small>}
         </aside>
       </form>
+
+      {hoursPromptOpen ? (
+        <div className="profile-edit-overlay profile-hours-overlay" role="presentation">
+          <section className="profile-edit-modal profile-hours-modal" role="dialog" aria-modal="true" aria-labelledby="missing-hours-title" aria-describedby="missing-hours-description">
+            <span className="profile-hours-modal__icon" aria-hidden="true">◷</span>
+            <small>ONE MORE STEP</small>
+            <h2 id="missing-hours-title">Add hours for every activity.</h2>
+            <p id="missing-hours-description">Trajectory uses your experience volume and depth to make its recommendations as accurate and personalized as possible. Please enter total hours for the activities below before continuing.</p>
+            <strong>Rough estimates are completely okay—you can update them later.</strong>
+            <div className="profile-hours-modal__missing">
+              <span>{activitiesMissingHours.length} {activitiesMissingHours.length === 1 ? "activity needs" : "activities need"} hours</span>
+              {activitiesMissingHours.map((activity) => <p key={activity.id}>{activity.name}</p>)}
+            </div>
+            <button className="profile-save" type="button" onClick={returnToMissingHours}>Return to activities <span>→</span></button>
+          </section>
+        </div>
+      ) : null}
 
       {editingCourseId ? (
         <div className="profile-edit-overlay" role="presentation" onMouseDown={(event) => {

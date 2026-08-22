@@ -577,6 +577,10 @@ export function GuidedTrajectory({
   const selectedMilestoneActions = selectedMilestone
     ? ranked.filter((action) => milestoneForGraphNode(action.node) === selectedMilestone).slice(0, 5)
     : [];
+  const missingActivityHours = snapshot?.activities.filter((activity) => {
+    const hours = Number(activity.hours);
+    return !activity.hours.trim() || !Number.isFinite(hours) || hours <= 0;
+  }) ?? [];
 
   const supportingEvidence = useMemo(() => {
     if (!topAction) return [];
@@ -719,6 +723,16 @@ export function GuidedTrajectory({
         <p>TRAJECTORY</p><h1>Complete your profile first.</h1>
         <Link href="/profile">Open applicant profile →</Link>
       </section>
+    );
+  }
+
+  if (missingActivityHours.length > 0) {
+    return (
+      <>{nav}<section className="guided-missing-profile">
+        <p>HOURS REQUIRED</p><h1>Add activity hours to continue.</h1>
+        <span>Trajectory needs an hour estimate for every activity before it can build an accurate, personalized recommendation. Rough estimates are okay.</span>
+        <Link href="/profile">Return to applicant profile →</Link>
+      </section></>
     );
   }
 
